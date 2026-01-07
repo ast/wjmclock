@@ -1,0 +1,3 @@
+* WJMClock
+
+Desktop background for Wayland that draws a termination line "geochron" display.
