@@ -62,7 +62,32 @@ fn activate(application: &gtk4::Application) {
     // - Cover: fills screen, may crop edges (nice for wallpaper)
     picture.set_content_fit(gtk4::ContentFit::Cover);
 
-    window.set_child(Some(&picture));
+    // Overlay: draw terminator line / shading here
+    let overlay_area = gtk4::DrawingArea::new();
+    overlay_area.set_hexpand(true);
+    overlay_area.set_vexpand(true);
+
+    overlay_area.set_draw_func(|_area, cr, w, h| {
+        // Example: draw a test line diagonally
+        cr.set_source_rgba(1.0, 0.0, 0.0, 0.5);
+        cr.set_line_width(3.0);
+        cr.move_to(0.0, 0.0);
+        cr.line_to(w as f64, h as f64);
+        cr.stroke().unwrap();
+
+        // Later: draw your day/night terminator here
+    });
+
+    // Stack them
+    let overlay = gtk4::Overlay::new();
+    overlay.set_child(Some(&picture));
+    overlay.add_overlay(&overlay_area);
+
+    // Make overlay click-through (useful for wallpaper)
+    overlay_area.set_can_target(false);
+    overlay_area.set_focusable(false);
+
+    window.set_child(Some(&overlay));
 
     // Show the window
     window.present();
