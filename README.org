@@ -1,0 +1,185 @@
+#+TITLE: wjmclock
+#+SUBTITLE: Modern HamClock-style war-room display
+#+OPTIONS: toc:nil num:nil ^:nil
+
+[[file:docs/screenshot.png]]
+
+* About
+
+A modern, Rust + [[https://www.egui.rs/][egui]] reimplementation of [[https://www.hamclock.com/][HamClock]] in a Cold-War
+control-room aesthetic: a clock alongside a vector world map with a
+[[https://en.wikipedia.org/wiki/Grey_line_(radio_propagation)][grayline]] (day/night terminator) sweeping across it. Built primarily for a
+Raspberry Pi 4 driving a 1920×1080 wall display, but it scales cleanly to other
+resolutions.
+
+The grayline is rendered Geochron-style: a smooth gradient from transparent
+daylight, through a warm twilight band, into a deep navy night. Coastlines are
+drawn as polylines from public-domain Natural Earth data; the home location is
+marked from a Maidenhead grid locator; the subsolar point is shown so you can
+tell at a glance where the sun is overhead right now.
+
+The display is data-driven — every element on screen (clock, callsign, map) is
+a TOML entry that you can position, recolor, and add or remove. Multiple
+clocks for different time zones are first-class.
+
+* Build
+
+Requires a recent stable Rust toolchain (edition 2024).
+
+#+begin_src bash
+cargo build --release
+#+end_src
+
+Or with the bundled [[https://github.com/casey/just][just]] task runner:
+
+#+begin_src bash
+just release        # cargo build --release
+just check          # fmt + clippy + tests
+#+end_src
+
+Linux runtime deps (Debian/Ubuntu): =libgl1=, =libegl1=, =libwayland-client0=,
+=libxkbcommon0=, plus the X11 stack if you're not on Wayland. The [[file:Cross.toml][Cross.toml]]
+lists exact =-dev= packages used during cross-compilation.
+
+* Run
+
+#+begin_src bash
+cargo run                                 # uses the auto-loaded config (see below)
+cargo run -- --config wjmclock.example.toml
+cargo run -- --fullscreen --no-cursor     # kiosk mode
+just run                                  # cargo run with the example config
+#+end_src
+
+** Hotkeys
+
+| Key      | Action                                  |
+|----------+-----------------------------------------|
+| =Esc=    | Quit                                    |
+| =Ctrl+Q= | Quit (Cmd+Q on macOS)                   |
+| =F11=    | Toggle fullscreen                       |
+
+=--version= prints the crate version with the embedded git short hash, e.g.
+=wjmclock 0.1.0 (e057858)= (with =-dirty= when the working tree has uncommitted
+changes).
+
+* Configuration
+
+wjmclock looks for a TOML config in this order:
+
+1. The file passed via =--config <PATH>=
+2. =$XDG_CONFIG_HOME/wjmclock/wjmclock.toml= (e.g. =~/.config/wjmclock/wjmclock.toml=)
+3. =./wjmclock.toml= in the current directory
+
+If none exist, sensible defaults are used. CLI flags always override values
+loaded from the config. A complete annotated example lives in
+[[file:wjmclock.example.toml][=wjmclock.example.toml=]].
+
+** CLI flags
+
+| Flag                  | Description                                          |
+|-----------------------+------------------------------------------------------|
+| =-c, --config <PATH>= | Path to a TOML config file                           |
+| =--width <PIXELS>=    | Window width in logical pixels                       |
+| =--height <PIXELS>=   | Window height in logical pixels                      |
+| =--fullscreen=        | Start fullscreen                                     |
+| =--no-cursor=         | Hide the mouse cursor (kiosk mode)                   |
+| =--version=           | Print version (with git hash) and exit               |
+
+** =[window]=
+
+| Key          | Type   | Default     | Description                            |
+|--------------+--------+-------------+----------------------------------------|
+| =width=      | int    | =1920=      | Window width in logical pixels         |
+| =height=     | int    | =1080=      | Window height in logical pixels        |
+| =fullscreen= | bool   | =false=     | Start fullscreen                       |
+| =no_cursor=  | bool   | =false=     | Hide the mouse cursor                  |
+| =background= | string | ="#0a0a14"= | Window background color (hex)          |
+
+** =[location]=
+
+Set *either* a Maidenhead =locator= *or* both =lat= and =lon=.
+
+| Key       | Type   | Default  | Description                                |
+|-----------+--------+----------+--------------------------------------------|
+| =locator= | string | —        | Maidenhead grid locator (2/4/6/8 chars)    |
+| =lat=     | float  | —        | Latitude in degrees (-90..90)              |
+| =lon=     | float  | —        | Longitude in degrees (-180..180)           |
+| =label=   | string | ="HOME"= | Label drawn next to the home marker        |
+
+** =[[element]]= — shared keys
+
+Each =[[element]]= entry has these two required keys; element-specific keys
+follow in the sections below.
+
+| Key    | Type   | Description                                              |
+|--------+--------+----------------------------------------------------------|
+| =type= | string | =clock=, =map=, or =callsign=                            |
+| =rect= | table  | ={ x, y, w, h }= as fractions of the window (0..1)       |
+
+** =type = "clock"=
+
+| Key        | Type   | Default     | Description                                       |
+|------------+--------+-------------+---------------------------------------------------|
+| =timezone= | string | ="UTC"=     | IANA timezone (e.g. =Europe/Stockholm=)           |
+| =format=   | string | ="24h"=     | =24h= or =12h=                                    |
+| =label=    | bool   | =true=      | Show the timezone label below the date            |
+| =color=    | string | ="#7df5d2"= | Text color                                        |
+
+** =type = "callsign"=
+
+| Key        | Type   | Default     | Description                                       |
+|------------+--------+-------------+---------------------------------------------------|
+| =call=     | string | (required)  | The call sign to display                          |
+| =subtitle= | string | —           | Optional subtitle (e.g. locator + city)           |
+| =color=    | string | ="#ffd66b"= | Text color                                        |
+
+** =type = "map"=
+
+| Key               | Type   | Default             | Description                                                 |
+|-------------------+--------+---------------------+-------------------------------------------------------------|
+| =projection=      | string | ="equirectangular"= | Projection (currently only equirectangular)                 |
+| =terminator=      | bool   | =true=              | Draw the day/night grayline gradient                        |
+| =day_color=       | string | ="#15233f"=         | Lit-ocean fill (must be brighter than =night_color=)        |
+| =night_color=     | string | ="#04091e"=         | Deep-night overlay color                                    |
+| =twilight_color=  | string | ="#ffb060"=         | Warm tint of the grayline band                              |
+| =twilight_extent= | float  | =12.0=              | Elevation° at full night: 6 civil / 12 nautical / 18 astronomical |
+| =night_dim=       | float  | =0.85=              | Night-overlay opacity (0..1)                                |
+| =coast_color=     | string | ="#39c08c"=         | Coastline polyline color                                    |
+| =grid=            | bool   | =true=              | Draw the 30° lat/lon grid                                   |
+| =grid_color=      | string | ="#1c3a3a"=         | Grid color                                                  |
+| =subsolar_marker= | bool   | =true=              | Draw the subsolar (overhead-sun) marker                     |
+| =home_marker=     | bool   | =true=              | Draw the home-location marker (needs =[location]=)          |
+| =home_color=      | string | ="#ff5577"=         | Home marker color                                           |
+
+* Cross-compile and deploy
+
+The repo ships a [[file:Cross.toml][=Cross.toml=]] for [[https://github.com/cross-rs/cross][cross-rs]] and a [[file:justfile][=justfile=]] with deploy
+helpers. Default target is =aarch64-unknown-linux-gnu= (Raspberry Pi 4/5).
+
+#+begin_src bash
+just cross                  # release build for aarch64-unknown-linux-gnu
+just deploy                 # cross + scp binary + config to ssh host `shack`
+just deploy pi@elsewhere    # same flow, different host
+#+end_src
+
+=just deploy= places the binary at =~/wjmclock= on the remote and the config at
+=~/.config/wjmclock/wjmclock.toml=. After that, ssh in and run:
+
+#+begin_src bash
+./wjmclock --fullscreen --no-cursor
+#+end_src
+
+* Capturing the screenshot
+
+Wayland (wlroots / Hyprland / sway):
+
+#+begin_src bash
+grim -g "$(slurp)" docs/screenshot.png
+#+end_src
+
+(Drag a region or click within the wjmclock window — slurp will snap to its
+bounds.)
+
+* License
+
+TBD.
