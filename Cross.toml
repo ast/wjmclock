@@ -1,0 +1,17 @@
+# Cross-compiling wjmclock for Raspberry Pi 4/5 (aarch64-unknown-linux-gnu).
+#
+# Build:    just cross
+#   (or)    cross build --release --target aarch64-unknown-linux-gnu
+#
+# The sysroot pre-installs the C deps eframe pulls in transitively:
+#   - OpenGL / EGL  for the `glow` renderer
+#   - Wayland + X11 + xkbcommon for winit
+#   - xcb-{render,shape,xfixes} + xcursor / xi / xrandr for arboard + winit
+
+[target.aarch64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main"
+pre-build = [
+    "dpkg --add-architecture arm64",
+    "apt-get update",
+    "apt-get install --assume-yes pkg-config libgl-dev:arm64 libegl-dev:arm64 libwayland-dev:arm64 libxkbcommon-dev:arm64 libxkbcommon-x11-dev:arm64 libxcb-render0-dev:arm64 libxcb-shape0-dev:arm64 libxcb-xfixes0-dev:arm64 libxcursor-dev:arm64 libxi-dev:arm64 libxrandr-dev:arm64",
+]

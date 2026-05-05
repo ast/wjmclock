@@ -102,5 +102,4 @@ mod tests {
         let e = s.elevation_at(s.lat, s.lon);
         assert!((e - 90.0).abs() < 0.5, "e={}", e);
     }
-
 }

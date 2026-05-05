@@ -341,11 +341,7 @@ fn draw_home(
     painter.circle_filled(p, r, color);
     painter.circle_stroke(p, r, Stroke::new(1.5, Color32::WHITE));
     // Soft halo.
-    painter.circle_stroke(
-        p,
-        r * 2.2,
-        Stroke::new(1.0, color.gamma_multiply(0.6)),
-    );
+    painter.circle_stroke(p, r * 2.2, Stroke::new(1.0, color.gamma_multiply(0.6)));
 
     // Label, offset down-right so it doesn't overlap the disc.
     let font = FontId::proportional((r * 2.0).max(12.0));

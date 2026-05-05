@@ -27,10 +27,7 @@ pub trait Element {
 
 /// Construct an element from its TOML config. Adding a new element type =
 /// add one file in `elements/` and one match arm here.
-pub fn make_element(
-    cfg: &ElementConfig,
-    globals: &Globals,
-) -> Result<Box<dyn Element>, AppError> {
+pub fn make_element(cfg: &ElementConfig, globals: &Globals) -> Result<Box<dyn Element>, AppError> {
     let extra = toml::Value::Table(cfg.extra.clone());
     match cfg.kind.as_str() {
         "clock" => Clock::from_toml(extra)

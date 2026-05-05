@@ -43,6 +43,25 @@ impl eframe::App for App {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+
+        // Standard quit / fullscreen hotkeys, handled centrally so they apply
+        // regardless of which element has focus:
+        //   Esc, Ctrl/Cmd+Q  → quit
+        //   F11              → toggle fullscreen
+        let (quit, toggle_full) = ctx.input(|i| {
+            let quit = i.key_pressed(egui::Key::Escape)
+                || (i.modifiers.command && i.key_pressed(egui::Key::Q));
+            let toggle_full = i.key_pressed(egui::Key::F11);
+            (quit, toggle_full)
+        });
+        if quit {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        if toggle_full {
+            let now_full = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!now_full));
+        }
+
         if self.no_cursor {
             ctx.set_cursor_icon(egui::CursorIcon::None);
         }
