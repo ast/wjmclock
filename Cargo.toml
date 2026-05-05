@@ -1,0 +1,21 @@
+[package]
+name = "wjmclock"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+thiserror = "2"
+anyhow = "1"
+eframe = { version = "0.34", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = "0.34"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+chrono = { version = "0.4", features = ["clock", "serde"] }
+chrono-tz = "0.10"
+geojson = "1"
+directories = "6"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

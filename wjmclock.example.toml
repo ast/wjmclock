@@ -1,0 +1,65 @@
+# wjmclock example configuration.
+#
+# Copy to one of:
+#   - the path passed via `--config`
+#   - $XDG_CONFIG_HOME/wjmclock/wjmclock.toml (or platform equivalent)
+#   - ./wjmclock.toml in the current directory
+#
+# CLI flags (`--width`, `--height`, `--fullscreen`, `--no-cursor`) override
+# anything set here.
+
+[window]
+width      = 1920
+height     = 1080
+fullscreen = false
+no_cursor  = false
+background = "#0a0a14"
+
+# Your home QTH. Pick ONE of:
+#   locator = "JO67AQ"      # Maidenhead grid (2/4/6/8 chars)
+#   lat = 57.7; lon = 12.0  # raw degrees
+[location]
+locator = "JO67AQ"
+label   = "GÖTEBORG"
+
+# UTC time, top-left.
+[[element]]
+type     = "clock"
+rect     = { x = 0.00, y = 0.00, w = 0.30, h = 0.22 }
+timezone = "UTC"
+format   = "24h"
+color    = "#7df5d2"
+
+# Operator callsign, top-centre. Subtitle is optional.
+[[element]]
+type     = "callsign"
+rect     = { x = 0.30, y = 0.00, w = 0.40, h = 0.22 }
+call     = "SM6WJM"
+subtitle = "JO67AQ — GÖTEBORG"
+color    = "#ffd66b"
+
+# Local time, top-right.
+[[element]]
+type     = "clock"
+rect     = { x = 0.70, y = 0.00, w = 0.30, h = 0.22 }
+timezone = "Europe/Stockholm"
+format   = "24h"
+color    = "#f5d27d"
+
+# World map with Geochron-style grayline across the bottom.
+[[element]]
+type            = "map"
+rect            = { x = 0.0, y = 0.22, w = 1.0, h = 0.78 }
+projection      = "equirectangular"
+terminator      = true
+day_color       = "#15233f"   # lit-ocean fill (must be brighter than night_color)
+night_color     = "#04091e"   # deep navy of the night side
+twilight_color  = "#ffb060"   # warm tint of the gray-line band
+night_dim       = 0.85        # how dark the night side gets (0..1)
+twilight_extent = 12.0        # 6 civil / 12 nautical (Geochron-like) / 18 astronomical
+coast_color     = "#39c08c"
+grid            = true
+grid_color      = "#1c3a3a"
+subsolar_marker = true
+home_marker     = true
+home_color      = "#ff5577"
