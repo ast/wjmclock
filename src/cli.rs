@@ -1,11 +1,14 @@
 use clap::Parser;
 use std::path::PathBuf;
 
+/// "0.1.0 (a1b2c3d)" or "0.1.0 (a1b2c3d-dirty)". `GIT_COMMIT` is set by build.rs.
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_COMMIT"), ")");
+
 #[derive(Debug, Parser)]
 #[command(
     name = "wjmclock",
     about = "Modern HamClock-style war-room display",
-    version
+    version = VERSION
 )]
 pub struct Cli {
     /// Path to a TOML config file. Defaults to <config-dir>/wjmclock/wjmclock.toml then ./wjmclock.toml.
