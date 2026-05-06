@@ -1,7 +1,7 @@
 use crate::config::{Marker, MarkerKind, parse_color};
 use crate::elements::{Element, Globals};
 use crate::geo::{Coastline, Equirectangular, LatLon, Projection, Subsolar};
-use crate::textures::{self, TextureChoice};
+use crate::textures;
 use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Timelike, Utc};
 use egui::epaint::Vertex;
@@ -27,16 +27,12 @@ struct MapCfg {
     subsolar_marker: bool,
     #[serde(default = "default_marker_color")]
     marker_color: String,
-    /// Bundled raster basemap drawn under everything else. Recognised values:
-    /// `"natural_earth"`. Absent → flat `day_color` fill (current).
+    /// When true, draw the bundled day basemap (Natural Earth III) and overlay
+    /// the bundled Earth-at-Night raster on the night side. The terminator's
+    /// deep-night dimming auto-fades so the city lights stay visible.
+    /// Default false → flat `day_color` fill.
     #[serde(default)]
-    texture: Option<String>,
-    /// Bundled raster overlaid on the night side, alpha-masked by solar
-    /// elevation. Recognised values: `"earth_at_night"`. When set, the
-    /// terminator's deep-night dimming auto-fades to transparent so the city
-    /// lights stay visible.
-    #[serde(default)]
-    night_texture: Option<String>,
+    texture: bool,
     /// Draw the vector coastline overlay on top of the base. Default true;
     /// turn off when the texture already shows coastlines.
     #[serde(default = "default_coastline")]
@@ -129,13 +125,13 @@ impl Map {
             other => return Err(anyhow!("unsupported projection: {other:?}")),
         }
         let coastline = Coastline::load().context("load coastline")?;
-        let pending_texture = match &cfg.texture {
-            Some(name) => Some(textures::decode(TextureChoice::parse(name)?)?),
-            None => None,
-        };
-        let pending_night_texture = match &cfg.night_texture {
-            Some(name) => Some(textures::decode(TextureChoice::parse(name)?)?),
-            None => None,
+        let (pending_texture, pending_night_texture) = if cfg.texture {
+            (
+                Some(textures::decode_day()?),
+                Some(textures::decode_night()?),
+            )
+        } else {
+            (None, None)
         };
         Ok(Self {
             coastline,

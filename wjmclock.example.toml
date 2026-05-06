@@ -71,11 +71,8 @@ grid            = true
 grid_color      = "#1c3a3a"
 subsolar_marker = true
 marker_color    = "#ff5577"
-# Bundled raster basemap. "natural_earth" = Tom Patterson's Natural Earth III
-# shaded relief. Omit for the flat day_color fill.
-texture         = "natural_earth"
-coastline       = false           # turn off vector coastlines if texture has its own
-# Bundled raster overlaid on the night side, alpha-masked by solar elevation.
-# "earth_at_night" = Earth at Night (city lights). When set, the terminator's
-# deep-night dimming auto-fades to transparent so the lights stay visible.
-night_texture   = "earth_at_night"
+# Bundled rasters: Natural Earth III shaded relief on the day side, Earth at
+# Night (city lights) alpha-masked over the night side. The terminator's
+# deep-night dimming auto-fades so the city lights stay visible.
+texture         = true
+coastline       = true           # turn off vector coastlines (the bundled texture has its own)

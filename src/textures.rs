@@ -4,38 +4,26 @@
 //! `assets/coastline.geojson`) and decoded on demand into an
 //! `egui::ColorImage` for upload to the GPU by the `Map` element.
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 
-#[derive(Debug, Clone, Copy)]
-pub enum TextureChoice {
-    NaturalEarth,
-    EarthAtNight,
+const DAY_PNG: &[u8] = include_bytes!("../assets/textures/natural_earth.png");
+const NIGHT_PNG: &[u8] = include_bytes!("../assets/textures/earth_at_night.png");
+
+/// Decode the bundled day basemap (Natural Earth III shaded relief) into an
+/// `egui::ColorImage`. Run once at `Map` construction; uploaded to the GPU on
+/// first paint.
+pub fn decode_day() -> Result<egui::ColorImage> {
+    decode_png(DAY_PNG, "day")
 }
 
-impl TextureChoice {
-    pub fn parse(s: &str) -> Result<Self> {
-        match s {
-            "natural_earth" => Ok(Self::NaturalEarth),
-            "earth_at_night" => Ok(Self::EarthAtNight),
-            other => Err(anyhow!(
-                "unknown texture {other:?} (expected \"natural_earth\" or \"earth_at_night\")"
-            )),
-        }
-    }
-
-    fn bytes(self) -> &'static [u8] {
-        match self {
-            Self::NaturalEarth => include_bytes!("../assets/textures/natural_earth.png"),
-            Self::EarthAtNight => include_bytes!("../assets/textures/earth_at_night.png"),
-        }
-    }
+/// Decode the bundled night overlay (Earth at Night).
+pub fn decode_night() -> Result<egui::ColorImage> {
+    decode_png(NIGHT_PNG, "night")
 }
 
-/// Decode a bundled texture into an `egui::ColorImage` (RGBA8). Run once at
-/// `Map` construction; the resulting image is uploaded to the GPU on first paint.
-pub fn decode(choice: TextureChoice) -> Result<egui::ColorImage> {
-    let img = image::load_from_memory_with_format(choice.bytes(), image::ImageFormat::Png)
-        .context("decode texture png")?
+fn decode_png(bytes: &[u8], label: &str) -> Result<egui::ColorImage> {
+    let img = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
+        .with_context(|| format!("decode {label} texture png"))?
         .to_rgba8();
     let (w, h) = img.dimensions();
     Ok(egui::ColorImage::from_rgba_unmultiplied(
