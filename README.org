@@ -180,6 +180,12 @@ grim -g "$(slurp)" docs/screenshot.png
 (Drag a region or click within the wjmclock window — slurp will snap to its
 bounds.)
 
+* Acknowledgements
+
+The bundled =natural_earth= basemap and =earth_at_night= overlay are from Tom
+Patterson's *Natural Earth III* texture set, hosted in the public domain at
+[[https://www.shadedrelief.com/natural3/pages/textures.html][shadedrelief.com/natural3]].
+
 * License
 
 TBD.

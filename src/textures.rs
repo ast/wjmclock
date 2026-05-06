@@ -9,14 +9,16 @@ use anyhow::{Context, Result, anyhow};
 #[derive(Debug, Clone, Copy)]
 pub enum TextureChoice {
     NaturalEarth,
+    EarthAtNight,
 }
 
 impl TextureChoice {
     pub fn parse(s: &str) -> Result<Self> {
         match s {
             "natural_earth" => Ok(Self::NaturalEarth),
+            "earth_at_night" => Ok(Self::EarthAtNight),
             other => Err(anyhow!(
-                "unknown texture {other:?} (expected \"natural_earth\")"
+                "unknown texture {other:?} (expected \"natural_earth\" or \"earth_at_night\")"
             )),
         }
     }
@@ -24,6 +26,7 @@ impl TextureChoice {
     fn bytes(self) -> &'static [u8] {
         match self {
             Self::NaturalEarth => include_bytes!("../assets/textures/natural_earth.png"),
+            Self::EarthAtNight => include_bytes!("../assets/textures/earth_at_night.png"),
         }
     }
 }
