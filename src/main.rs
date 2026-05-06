@@ -1,5 +1,6 @@
 mod app;
 mod cli;
+mod color;
 mod config;
 mod elements;
 mod error;

@@ -1,4 +1,5 @@
-use crate::config::{Marker, MarkerKind, parse_color};
+use crate::color::Color;
+use crate::config::{Marker, MarkerKind};
 use crate::elements::{Element, Globals};
 use crate::geo::{Coastline, Equirectangular, LatLon, Projection, Subsolar};
 use crate::textures;
@@ -18,15 +19,15 @@ struct MapCfg {
     #[serde(default = "default_night_dim")]
     night_dim: f32,
     #[serde(default = "default_coast_color")]
-    coast_color: String,
+    coast_color: Color,
     #[serde(default = "default_grid")]
     grid: bool,
     #[serde(default = "default_grid_color")]
-    grid_color: String,
+    grid_color: Color,
     #[serde(default = "default_subsolar_marker")]
     subsolar_marker: bool,
     #[serde(default = "default_marker_color")]
-    marker_color: String,
+    marker_color: Color,
     /// When true, draw the bundled day basemap (Natural Earth III) and overlay
     /// the bundled Earth-at-Night raster on the night side. The terminator's
     /// deep-night dimming auto-fades so the city lights stay visible.
@@ -38,9 +39,9 @@ struct MapCfg {
     #[serde(default = "default_coastline")]
     coastline: bool,
     #[serde(default = "default_night_color")]
-    night_color: String,
+    night_color: Color,
     #[serde(default = "default_twilight_color")]
-    twilight_color: String,
+    twilight_color: Color,
     /// Solar elevation in degrees at which the night overlay reaches full opacity.
     /// 6 = civil twilight, 12 = nautical (Geochron-like), 18 = astronomical.
     #[serde(default = "default_twilight_extent")]
@@ -49,7 +50,7 @@ struct MapCfg {
     /// brighter than `night_color` for the gray-line to read in the right
     /// direction.
     #[serde(default = "default_day_color")]
-    day_color: String,
+    day_color: Color,
 }
 
 fn default_projection() -> String {
@@ -61,32 +62,32 @@ fn default_terminator() -> bool {
 fn default_night_dim() -> f32 {
     0.85
 }
-fn default_coast_color() -> String {
-    "#39c08c".into()
+fn default_coast_color() -> Color {
+    Color::rgb(0x39, 0xc0, 0x8c)
 }
 fn default_grid() -> bool {
     true
 }
-fn default_grid_color() -> String {
-    "#1c3a3a".into()
+fn default_grid_color() -> Color {
+    Color::rgb(0x1c, 0x3a, 0x3a)
 }
 fn default_subsolar_marker() -> bool {
     true
 }
-fn default_marker_color() -> String {
-    "#ff5577".into()
+fn default_marker_color() -> Color {
+    Color::rgb(0xff, 0x55, 0x77)
 }
-fn default_night_color() -> String {
-    "#04091e".into()
+fn default_night_color() -> Color {
+    Color::rgb(0x04, 0x09, 0x1e)
 }
-fn default_twilight_color() -> String {
-    "#ffb060".into()
+fn default_twilight_color() -> Color {
+    Color::rgb(0xff, 0xb0, 0x60)
 }
 fn default_twilight_extent() -> f32 {
     12.0
 }
-fn default_day_color() -> String {
-    "#15233f".into()
+fn default_day_color() -> Color {
+    Color::rgb(0x15, 0x23, 0x3f)
 }
 fn default_coastline() -> bool {
     true
@@ -165,17 +166,17 @@ impl Map {
             projection: Equirectangular,
             show_terminator: cfg.terminator,
             night_dim: cfg.night_dim.clamp(0.0, 1.0),
-            coast_color: parse_color(&cfg.coast_color),
+            coast_color: cfg.coast_color.into(),
             grid: cfg.grid,
-            grid_color: parse_color(&cfg.grid_color),
+            grid_color: cfg.grid_color.into(),
             show_subsolar: cfg.subsolar_marker,
             show_coastline: cfg.coastline,
             markers: globals.markers.clone(),
-            marker_color: parse_color(&cfg.marker_color),
-            night_color: parse_color(&cfg.night_color),
-            twilight_color: parse_color(&cfg.twilight_color),
+            marker_color: cfg.marker_color.into(),
+            night_color: cfg.night_color.into(),
+            twilight_color: cfg.twilight_color.into(),
             twilight_extent: cfg.twilight_extent.clamp(1.0, 30.0),
-            day_color: parse_color(&cfg.day_color),
+            day_color: cfg.day_color.into(),
             textures,
         })
     }

@@ -1,4 +1,5 @@
 use crate::cli::Cli;
+use crate::color::Color;
 use crate::error::AppError;
 use crate::geo::{LatLon, maidenhead};
 use chrono_tz::Tz;
@@ -108,7 +109,7 @@ pub struct WindowConfig {
     #[serde(default)]
     pub no_cursor: bool,
     #[serde(default = "default_background")]
-    pub background: String,
+    pub background: Color,
 }
 
 fn default_width() -> u32 {
@@ -117,8 +118,8 @@ fn default_width() -> u32 {
 fn default_height() -> u32 {
     1080
 }
-fn default_background() -> String {
-    "#0a0a14".into()
+fn default_background() -> Color {
+    Color::rgb(0x0a, 0x0a, 0x14)
 }
 
 impl Default for WindowConfig {
@@ -254,21 +255,6 @@ fn default_elements() -> Vec<ElementConfig> {
     ]
 }
 
-/// Parse a "#rrggbb" hex color into an `egui::Color32`. Falls back to dark navy.
-pub fn parse_color(s: &str) -> egui::Color32 {
-    let s = s.trim_start_matches('#');
-    if s.len() == 6
-        && let (Ok(r), Ok(g), Ok(b)) = (
-            u8::from_str_radix(&s[0..2], 16),
-            u8::from_str_radix(&s[2..4], 16),
-            u8::from_str_radix(&s[4..6], 16),
-        )
-    {
-        return egui::Color32::from_rgb(r, g, b);
-    }
-    egui::Color32::from_rgb(0x0a, 0x0a, 0x14)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,14 +276,5 @@ mod tests {
         assert_eq!(cfg.window.width, 800);
         assert_eq!(cfg.elements.len(), 1);
         assert_eq!(cfg.elements[0].kind, "clock");
-    }
-
-    #[test]
-    fn color_parses_and_falls_back() {
-        assert_eq!(parse_color("#ff8000"), egui::Color32::from_rgb(255, 128, 0));
-        assert_eq!(
-            parse_color("nope"),
-            egui::Color32::from_rgb(0x0a, 0x0a, 0x14)
-        );
     }
 }

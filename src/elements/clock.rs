@@ -1,3 +1,4 @@
+use crate::color::Color;
 use crate::elements::Element;
 use anyhow::{Context, Result, anyhow};
 use chrono::{Datelike, Timelike, Utc};
@@ -14,7 +15,7 @@ struct ClockCfg {
     #[serde(default = "default_label")]
     label: bool,
     #[serde(default = "default_color")]
-    color: String,
+    color: Color,
 }
 
 fn default_tz() -> String {
@@ -26,8 +27,8 @@ fn default_format() -> String {
 fn default_label() -> bool {
     true
 }
-fn default_color() -> String {
-    "#7df5d2".into()
+fn default_color() -> Color {
+    Color::rgb(0x7d, 0xf5, 0xd2)
 }
 
 /// Large digital clock. Supports any IANA timezone and 12h/24h format.
@@ -56,7 +57,7 @@ impl Clock {
             label_text: cfg.timezone,
             twenty_four_hour,
             show_label: cfg.label,
-            color: crate::config::parse_color(&cfg.color),
+            color: cfg.color.into(),
         })
     }
 }

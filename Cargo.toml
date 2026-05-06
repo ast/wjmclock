@@ -16,6 +16,7 @@ chrono-tz = "0.10"
 geojson = "1"
 directories = "6"
 image = { version = "0.25", default-features = false, features = ["png"] }
+nom = "7"
 
 [profile.release]
 lto = "thin"

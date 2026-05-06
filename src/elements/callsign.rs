@@ -1,3 +1,4 @@
+use crate::color::Color;
 use crate::elements::Element;
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -9,11 +10,11 @@ struct CallsignCfg {
     #[serde(default)]
     subtitle: Option<String>,
     #[serde(default = "default_color")]
-    color: String,
+    color: Color,
 }
 
-fn default_color() -> String {
-    "#ffd66b".into()
+fn default_color() -> Color {
+    Color::rgb(0xff, 0xd6, 0x6b)
 }
 
 /// Static text element designed for amateur-radio callsigns. A primary line
@@ -30,7 +31,7 @@ impl Callsign {
         Ok(Self {
             call: cfg.call,
             subtitle: cfg.subtitle,
-            color: crate::config::parse_color(&cfg.color),
+            color: cfg.color.into(),
         })
     }
 }

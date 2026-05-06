@@ -1,4 +1,4 @@
-use crate::config::{Config, FractionalRect, parse_color};
+use crate::config::{Config, FractionalRect};
 use crate::elements::{Element, Globals, make_element};
 use crate::error::AppError;
 use crate::layout::Layout;
@@ -11,7 +11,7 @@ pub struct App {
 
 impl App {
     pub fn new(_cc: &eframe::CreationContext<'_>, config: Config) -> Result<Self, AppError> {
-        let bg = parse_color(&config.window.background);
+        let bg = config.window.background.into();
         let mut markers = Vec::with_capacity(config.markers.len());
         for m in &config.markers {
             markers.push(m.resolve()?);
