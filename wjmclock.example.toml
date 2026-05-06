@@ -71,3 +71,7 @@ grid            = true
 grid_color      = "#1c3a3a"
 subsolar_marker = true
 marker_color    = "#ff5577"
+# Bundled raster basemap. Currently only "natural_earth" (Tom Patterson's
+# Natural Earth III shaded relief, public domain). Omit for the flat fill.
+texture         = "natural_earth"
+coastline       = false           # turn off vector coastlines if texture has its own

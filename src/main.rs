@@ -5,6 +5,7 @@ mod elements;
 mod error;
 mod geo;
 mod layout;
+mod textures;
 
 use anyhow::Context;
 use clap::Parser;

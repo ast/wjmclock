@@ -1,10 +1,11 @@
 use crate::config::{Marker, MarkerKind, parse_color};
 use crate::elements::{Element, Globals};
 use crate::geo::{Coastline, Equirectangular, LatLon, Projection, Subsolar};
+use crate::textures::{self, TextureChoice};
 use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Timelike, Utc};
 use egui::epaint::Vertex;
-use egui::{Align2, Color32, FontId, Mesh, Pos2, Rect, Stroke, pos2, vec2};
+use egui::{Align2, Color32, FontId, Mesh, Pos2, Rect, Stroke, TextureHandle, pos2, vec2};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -26,6 +27,14 @@ struct MapCfg {
     subsolar_marker: bool,
     #[serde(default = "default_marker_color")]
     marker_color: String,
+    /// Bundled raster basemap drawn under everything else. Currently only
+    /// `"natural_earth"` is recognised. Absent → flat `day_color` fill (current).
+    #[serde(default)]
+    texture: Option<String>,
+    /// Draw the vector coastline overlay on top of the base. Default true;
+    /// turn off when the texture already shows coastlines.
+    #[serde(default = "default_coastline")]
+    coastline: bool,
     #[serde(default = "default_night_color")]
     night_color: String,
     #[serde(default = "default_twilight_color")]
@@ -77,6 +86,9 @@ fn default_twilight_extent() -> f32 {
 fn default_day_color() -> String {
     "#15233f".into()
 }
+fn default_coastline() -> bool {
+    true
+}
 
 /// World map with coastlines and an optional day/night terminator overlay.
 pub struct Map {
@@ -88,12 +100,17 @@ pub struct Map {
     grid: bool,
     grid_color: Color32,
     show_subsolar: bool,
+    show_coastline: bool,
     markers: Vec<Marker>,
     marker_color: Color32,
     night_color: Color32,
     twilight_color: Color32,
     twilight_extent: f32,
     day_color: Color32,
+    /// Decoded at construction; consumed on first paint to upload to the GPU.
+    pending_texture: Option<egui::ColorImage>,
+    /// GPU texture handle, populated on first paint and reused thereafter.
+    texture: Option<TextureHandle>,
 }
 
 impl Map {
@@ -104,6 +121,13 @@ impl Map {
             other => return Err(anyhow!("unsupported projection: {other:?}")),
         }
         let coastline = Coastline::load().context("load coastline")?;
+        let pending_texture = match &cfg.texture {
+            Some(name) => {
+                let choice = TextureChoice::parse(name)?;
+                Some(textures::decode(choice)?)
+            }
+            None => None,
+        };
         Ok(Self {
             coastline,
             projection: Equirectangular,
@@ -113,12 +137,15 @@ impl Map {
             grid: cfg.grid,
             grid_color: parse_color(&cfg.grid_color),
             show_subsolar: cfg.subsolar_marker,
+            show_coastline: cfg.coastline,
             markers: globals.markers.clone(),
             marker_color: parse_color(&cfg.marker_color),
             night_color: parse_color(&cfg.night_color),
             twilight_color: parse_color(&cfg.twilight_color),
             twilight_extent: cfg.twilight_extent.clamp(1.0, 30.0),
             day_color: parse_color(&cfg.day_color),
+            pending_texture,
+            texture: None,
         })
     }
 }
@@ -133,9 +160,30 @@ impl Element for Map {
         let rect = ui.available_rect_before_wrap();
         let painter = ui.painter_at(rect);
 
-        // Daytime backdrop. Must be brighter than `night_color` or the
+        // Lazy GPU upload: we need a Context for `load_texture`, which only
+        // exists once we're inside `ui`. After this, `texture` is cached.
+        if let Some(img) = self.pending_texture.take() {
+            self.texture = Some(ui.ctx().load_texture(
+                "wjmclock_map_texture",
+                img,
+                egui::TextureOptions::LINEAR,
+            ));
+        }
+
+        // Base layer: bundled texture, or the flat day_color fill (current).
+        // day_color must be brighter than night_color or the terminator
         // overlay reads inverted (lit area looks darker than the night side).
-        painter.rect_filled(rect, 0.0, self.day_color);
+        if let Some(tex) = &self.texture {
+            let mut mesh = Mesh::with_texture(tex.id());
+            mesh.add_rect_with_uv(
+                rect,
+                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                Color32::WHITE,
+            );
+            painter.add(egui::Shape::mesh(mesh));
+        } else {
+            painter.rect_filled(rect, 0.0, self.day_color);
+        }
 
         if self.show_terminator {
             draw_terminator(
@@ -150,13 +198,15 @@ impl Element for Map {
         if self.grid {
             draw_grid(&painter, rect, self.grid_color);
         }
-        draw_coastlines(
-            &painter,
-            rect,
-            &self.coastline,
-            &self.projection,
-            self.coast_color,
-        );
+        if self.show_coastline {
+            draw_coastlines(
+                &painter,
+                rect,
+                &self.coastline,
+                &self.projection,
+                self.coast_color,
+            );
+        }
         if self.show_subsolar {
             draw_subsolar(&painter, rect, &self.projection);
         }
