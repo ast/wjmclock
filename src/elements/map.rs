@@ -1,8 +1,8 @@
-use crate::config::{Location, parse_color};
+use crate::config::{Marker, MarkerKind, parse_color};
 use crate::elements::{Element, Globals};
 use crate::geo::{Coastline, Equirectangular, LatLon, Projection, Subsolar};
 use anyhow::{Context, Result, anyhow};
-use chrono::Utc;
+use chrono::{DateTime, Timelike, Utc};
 use egui::epaint::Vertex;
 use egui::{Align2, Color32, FontId, Mesh, Pos2, Rect, Stroke, pos2, vec2};
 use serde::Deserialize;
@@ -24,10 +24,8 @@ struct MapCfg {
     grid_color: String,
     #[serde(default = "default_subsolar_marker")]
     subsolar_marker: bool,
-    #[serde(default = "default_home_marker")]
-    home_marker: bool,
-    #[serde(default = "default_home_color")]
-    home_color: String,
+    #[serde(default = "default_marker_color")]
+    marker_color: String,
     #[serde(default = "default_night_color")]
     night_color: String,
     #[serde(default = "default_twilight_color")]
@@ -64,10 +62,7 @@ fn default_grid_color() -> String {
 fn default_subsolar_marker() -> bool {
     true
 }
-fn default_home_marker() -> bool {
-    true
-}
-fn default_home_color() -> String {
+fn default_marker_color() -> String {
     "#ff5577".into()
 }
 fn default_night_color() -> String {
@@ -93,9 +88,8 @@ pub struct Map {
     grid: bool,
     grid_color: Color32,
     show_subsolar: bool,
-    home: Option<Location>,
-    show_home: bool,
-    home_color: Color32,
+    markers: Vec<Marker>,
+    marker_color: Color32,
     night_color: Color32,
     twilight_color: Color32,
     twilight_extent: f32,
@@ -119,9 +113,8 @@ impl Map {
             grid: cfg.grid,
             grid_color: parse_color(&cfg.grid_color),
             show_subsolar: cfg.subsolar_marker,
-            home: globals.home.clone(),
-            show_home: cfg.home_marker,
-            home_color: parse_color(&cfg.home_color),
+            markers: globals.markers.clone(),
+            marker_color: parse_color(&cfg.marker_color),
             night_color: parse_color(&cfg.night_color),
             twilight_color: parse_color(&cfg.twilight_color),
             twilight_extent: cfg.twilight_extent.clamp(1.0, 30.0),
@@ -167,10 +160,18 @@ impl Element for Map {
         if self.show_subsolar {
             draw_subsolar(&painter, rect, &self.projection);
         }
-        if self.show_home
-            && let Some(home) = &self.home
-        {
-            draw_home(&painter, rect, &self.projection, home, self.home_color);
+        if !self.markers.is_empty() {
+            let now = Utc::now();
+            for marker in &self.markers {
+                draw_marker(
+                    &painter,
+                    rect,
+                    &self.projection,
+                    marker,
+                    self.marker_color,
+                    now,
+                );
+            }
         }
         // Border.
         painter.rect_stroke(
@@ -327,33 +328,66 @@ fn draw_subsolar(painter: &egui::Painter, rect: Rect, proj: &Equirectangular) {
     painter.line_segment([p - vec2(0.0, r * 2.4), p + vec2(0.0, r * 2.4)], ray);
 }
 
-fn draw_home(
+fn draw_marker(
     painter: &egui::Painter,
     rect: Rect,
     proj: &Equirectangular,
-    home: &Location,
+    marker: &Marker,
     color: Color32,
+    now: DateTime<Utc>,
 ) {
-    let p = proj.project(rect, home.coord);
-    let r = (rect.width().min(rect.height()) * 0.010).max(4.0);
+    let p = proj.project(rect, marker.coord);
+    let r = (rect.width().min(rect.height()) * 0.005).max(3.0);
 
-    // Filled disc + bright outline.
-    painter.circle_filled(p, r, color);
-    painter.circle_stroke(p, r, Stroke::new(1.5, Color32::WHITE));
-    // Soft halo.
-    painter.circle_stroke(p, r * 2.2, Stroke::new(1.0, color.gamma_multiply(0.6)));
+    match marker.kind {
+        MarkerKind::Dot => {
+            // Filled disc + bright outline.
+            painter.circle_filled(p, r, color);
+            painter.circle_stroke(p, r, Stroke::new(1.0, Color32::WHITE));
+            // Soft halo.
+            painter.circle_stroke(p, r * 2.2, Stroke::new(1.0, color.gamma_multiply(0.6)));
+        }
+    }
 
-    // Label, offset down-right so it doesn't overlap the disc.
-    let font = FontId::proportional((r * 2.0).max(12.0));
-    let label_pos = p + vec2(r * 1.6, r * 1.2);
+    // Label size is independent of the disc — shrinking the dot shouldn't
+    // shrink the text.
+    let label_size = (rect.width().min(rect.height()) * 0.020).clamp(12.0, 24.0);
+    let font = FontId::proportional(label_size);
+    // Sit just outside the halo, vertically centred on the disc.
+    let label_pos = p + vec2(r * 2.2 + 4.0, -label_size * 0.4);
     let label_color = Color32::from_rgb(230, 230, 230);
+    let shadow = Color32::from_rgba_unmultiplied(0, 0, 0, 180);
     // Subtle drop-shadow for legibility on bright map regions.
     painter.text(
         label_pos + vec2(1.0, 1.0),
         Align2::LEFT_TOP,
-        &home.label,
+        &marker.text,
         font.clone(),
-        Color32::from_rgba_unmultiplied(0, 0, 0, 180),
+        shadow,
     );
-    painter.text(label_pos, Align2::LEFT_TOP, &home.label, font, label_color);
+    painter.text(label_pos, Align2::LEFT_TOP, &marker.text, font, label_color);
+
+    // Optional local time, smaller, beneath the label. Map repaints once a
+    // minute (see Map::update), so minute precision is the right granularity.
+    if let Some(tz) = marker.tz {
+        let local = now.with_timezone(&tz);
+        let time_str = format!("{:02}:{:02}", local.hour(), local.minute());
+        let time_size = (label_size * 0.85).max(11.0);
+        let time_font = FontId::monospace(time_size);
+        let time_pos = label_pos + vec2(0.0, label_size * 1.05);
+        painter.text(
+            time_pos + vec2(1.0, 1.0),
+            Align2::LEFT_TOP,
+            &time_str,
+            time_font.clone(),
+            shadow,
+        );
+        painter.text(
+            time_pos,
+            Align2::LEFT_TOP,
+            &time_str,
+            time_font,
+            label_color,
+        );
+    }
 }

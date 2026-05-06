@@ -12,11 +12,11 @@ pub struct App {
 impl App {
     pub fn new(_cc: &eframe::CreationContext<'_>, config: Config) -> Result<Self, AppError> {
         let bg = parse_color(&config.window.background);
-        let home = match &config.location {
-            Some(loc) => Some(loc.resolve()?),
-            None => None,
-        };
-        let globals = Globals { home };
+        let mut markers = Vec::with_capacity(config.markers.len());
+        for m in &config.markers {
+            markers.push(m.resolve()?);
+        }
+        let globals = Globals { markers };
         let mut elements: Vec<(FractionalRect, Box<dyn Element>)> = Vec::new();
         for el in &config.elements {
             let e = make_element(el, &globals)?;

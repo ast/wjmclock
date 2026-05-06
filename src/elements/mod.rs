@@ -1,4 +1,4 @@
-use crate::config::{ElementConfig, Location};
+use crate::config::{ElementConfig, Marker};
 use crate::error::AppError;
 
 pub mod callsign;
@@ -10,11 +10,11 @@ pub use clock::Clock;
 pub use map::Map;
 
 /// Globals available to every element at construction time. Currently just the
-/// user's home location; designed to grow (units, language, etc.) without
+/// configured map markers; designed to grow (units, language, etc.) without
 /// breaking element APIs.
 #[derive(Debug, Clone, Default)]
 pub struct Globals {
-    pub home: Option<Location>,
+    pub markers: Vec<Marker>,
 }
 
 /// A drawable, configurable widget placed in a fractional rect of the window.

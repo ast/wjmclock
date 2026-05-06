@@ -1,6 +1,7 @@
 use crate::cli::Cli;
 use crate::error::AppError;
 use crate::geo::{LatLon, maidenhead};
+use chrono_tz::Tz;
 use directories::ProjectDirs;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -10,40 +11,52 @@ use std::path::{Path, PathBuf};
 pub struct Config {
     #[serde(default)]
     pub window: WindowConfig,
-    #[serde(default)]
-    pub location: Option<LocationConfig>,
+    #[serde(default, rename = "marker")]
+    pub markers: Vec<MarkerConfig>,
     #[serde(default, rename = "element")]
     pub elements: Vec<ElementConfig>,
 }
 
-/// User's location, settable as either a Maidenhead grid locator or raw lat/lon.
-/// Resolved to a `Location` via `LocationConfig::resolve` after parsing.
+/// One map marker, settable as either a Maidenhead grid locator or raw lat/lon.
+/// Resolved to a `Marker` via `MarkerConfig::resolve` after parsing.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LocationConfig {
+pub struct MarkerConfig {
     /// Maidenhead grid locator, e.g. "JN58td".
     pub locator: Option<String>,
     /// Raw latitude in degrees (-90..=90). Used if `locator` is absent.
     pub lat: Option<f32>,
     /// Raw longitude in degrees (-180..=180). Used if `locator` is absent.
     pub lon: Option<f32>,
-    /// Display label for the home marker.
-    #[serde(default = "default_label")]
-    pub label: String,
+    /// Display text drawn next to the marker.
+    pub text: String,
+    /// Visual style. Currently only `"dot"` is supported.
+    #[serde(default = "default_marker_kind")]
+    pub kind: String,
+    /// Optional IANA timezone (e.g. "Europe/Stockholm"). When set, the
+    /// marker's local time is drawn beneath its text.
+    pub timezone: Option<String>,
 }
 
-fn default_label() -> String {
-    "HOME".into()
+fn default_marker_kind() -> String {
+    "dot".into()
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MarkerKind {
+    Dot,
 }
 
 #[derive(Debug, Clone)]
-pub struct Location {
+pub struct Marker {
     pub coord: LatLon,
-    pub label: String,
+    pub text: String,
+    pub kind: MarkerKind,
+    pub tz: Option<Tz>,
 }
 
-impl LocationConfig {
-    pub fn resolve(&self) -> Result<Location, AppError> {
+impl MarkerConfig {
+    pub fn resolve(&self) -> Result<Marker, AppError> {
         let coord = if let Some(loc) = &self.locator {
             maidenhead::decode(loc)
                 .map_err(|e| AppError::InvalidLocation(format!("locator {loc:?}: {e}")))?
@@ -59,9 +72,26 @@ impl LocationConfig {
                 "set either `locator` or both `lat` and `lon`".into(),
             ));
         };
-        Ok(Location {
+        let kind = match self.kind.as_str() {
+            "dot" => MarkerKind::Dot,
+            other => {
+                return Err(AppError::InvalidLocation(format!(
+                    "unknown marker kind {other:?} (expected \"dot\")"
+                )));
+            }
+        };
+        let tz =
+            match &self.timezone {
+                Some(s) => Some(s.parse::<Tz>().map_err(|e| {
+                    AppError::InvalidLocation(format!("unknown timezone {s:?}: {e}"))
+                })?),
+                None => None,
+            };
+        Ok(Marker {
             coord,
-            label: self.label.clone(),
+            text: self.text.clone(),
+            kind,
+            tz,
         })
     }
 }
@@ -154,7 +184,7 @@ impl Config {
     fn default() -> Self {
         Self {
             window: WindowConfig::default(),
-            location: None,
+            markers: Vec::new(),
             elements: default_elements(),
         }
     }
