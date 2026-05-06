@@ -92,6 +92,45 @@ fn default_coastline() -> bool {
     true
 }
 
+/// Day basemap + night overlay with lazy GPU upload. Decoded at `Map`
+/// construction (errors surface early); uploaded on first paint when an
+/// `egui::Context` is available.
+#[derive(Default)]
+struct MapTextures {
+    day_pending: Option<egui::ColorImage>,
+    day: Option<TextureHandle>,
+    night_pending: Option<egui::ColorImage>,
+    night: Option<TextureHandle>,
+}
+
+impl MapTextures {
+    /// Decode both bundled rasters when `enabled`; otherwise leave empty.
+    fn new(enabled: bool) -> Result<Self> {
+        if enabled {
+            Ok(Self {
+                day_pending: Some(textures::decode_day()?),
+                day: None,
+                night_pending: Some(textures::decode_night()?),
+                night: None,
+            })
+        } else {
+            Ok(Self::default())
+        }
+    }
+
+    /// Upload any pending images to the GPU. Idempotent after the first call.
+    fn upload_pending(&mut self, ctx: &egui::Context) {
+        if let Some(img) = self.day_pending.take() {
+            self.day =
+                Some(ctx.load_texture("wjmclock_map_day", img, egui::TextureOptions::LINEAR));
+        }
+        if let Some(img) = self.night_pending.take() {
+            self.night =
+                Some(ctx.load_texture("wjmclock_map_night", img, egui::TextureOptions::LINEAR));
+        }
+    }
+}
+
 /// World map with coastlines and an optional day/night terminator overlay.
 pub struct Map {
     coastline: Coastline,
@@ -109,12 +148,7 @@ pub struct Map {
     twilight_color: Color32,
     twilight_extent: f32,
     day_color: Color32,
-    /// Decoded at construction; consumed on first paint to upload to the GPU.
-    pending_texture: Option<egui::ColorImage>,
-    /// GPU texture handle, populated on first paint and reused thereafter.
-    texture: Option<TextureHandle>,
-    pending_night_texture: Option<egui::ColorImage>,
-    night_texture: Option<TextureHandle>,
+    textures: MapTextures,
 }
 
 impl Map {
@@ -125,14 +159,7 @@ impl Map {
             other => return Err(anyhow!("unsupported projection: {other:?}")),
         }
         let coastline = Coastline::load().context("load coastline")?;
-        let (pending_texture, pending_night_texture) = if cfg.texture {
-            (
-                Some(textures::decode_day()?),
-                Some(textures::decode_night()?),
-            )
-        } else {
-            (None, None)
-        };
+        let textures = MapTextures::new(cfg.texture)?;
         Ok(Self {
             coastline,
             projection: Equirectangular,
@@ -149,10 +176,7 @@ impl Map {
             twilight_color: parse_color(&cfg.twilight_color),
             twilight_extent: cfg.twilight_extent.clamp(1.0, 30.0),
             day_color: parse_color(&cfg.day_color),
-            pending_texture,
-            texture: None,
-            pending_night_texture,
-            night_texture: None,
+            textures,
         })
     }
 }
@@ -167,31 +191,23 @@ impl Element for Map {
         let rect = ui.available_rect_before_wrap();
         let painter = ui.painter_at(rect);
 
-        // Lazy GPU upload: we need a Context for `load_texture`, which only
-        // exists once we're inside `ui`. After this, the handles are cached.
-        if let Some(img) = self.pending_texture.take() {
-            self.texture = Some(ui.ctx().load_texture(
-                "wjmclock_map_texture",
-                img,
-                egui::TextureOptions::LINEAR,
-            ));
-        }
-        if let Some(img) = self.pending_night_texture.take() {
-            self.night_texture = Some(ui.ctx().load_texture(
-                "wjmclock_map_night_texture",
-                img,
-                egui::TextureOptions::LINEAR,
-            ));
-        }
+        // Lazy GPU upload: we need a Context for `load_texture`, only
+        // available once we're inside `ui`. Idempotent after first paint.
+        self.textures.upload_pending(ui.ctx());
 
-        // Base layer: bundled texture, or the flat day_color fill (current).
+        // Solar geometry is needed by both the night-texture mask and the
+        // terminator overlay; compute once so they stay in lockstep.
+        let now = Utc::now();
+        let sub = Subsolar::at(now);
+
+        // Base layer: bundled day texture, or the flat day_color fill.
         // day_color must be brighter than night_color or the terminator
         // overlay reads inverted (lit area looks darker than the night side).
-        if let Some(tex) = &self.texture {
+        if let Some(tex) = &self.textures.day {
             let mut mesh = Mesh::with_texture(tex.id());
             mesh.add_rect_with_uv(
                 rect,
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                Rect::from_min_max(Pos2::ZERO, pos2(1.0, 1.0)),
                 Color32::WHITE,
             );
             painter.add(egui::Shape::mesh(mesh));
@@ -199,16 +215,18 @@ impl Element for Map {
             painter.rect_filled(rect, 0.0, self.day_color);
         }
 
-        // Night-side texture (city lights). Drawn under the terminator so the
-        // warm twilight band still tints the western edge of the night side.
-        if let Some(tex) = &self.night_texture {
-            draw_night_texture(&painter, rect, tex, self.twilight_extent);
+        // Night-side texture (city lights), alpha-masked by solar elevation.
+        // Drawn under the terminator so the warm twilight band still tints
+        // the western edge of the night side.
+        if let Some(tex) = &self.textures.night {
+            draw_night_texture(&painter, rect, &sub, tex, self.twilight_extent);
         }
 
         if self.show_terminator {
             draw_terminator(
                 &painter,
                 rect,
+                &sub,
                 self.night_dim,
                 self.twilight_color,
                 self.night_color,
@@ -216,7 +234,7 @@ impl Element for Map {
                 // When the night texture is in play, fade the deep-night fill
                 // to transparent so city lights stay visible — only the warm
                 // twilight band remains as a tint.
-                self.night_texture.is_some(),
+                self.textures.night.is_some(),
             );
         }
         if self.grid {
@@ -232,20 +250,17 @@ impl Element for Map {
             );
         }
         if self.show_subsolar {
-            draw_subsolar(&painter, rect, &self.projection);
+            draw_subsolar(&painter, rect, &sub, &self.projection);
         }
-        if !self.markers.is_empty() {
-            let now = Utc::now();
-            for marker in &self.markers {
-                draw_marker(
-                    &painter,
-                    rect,
-                    &self.projection,
-                    marker,
-                    self.marker_color,
-                    now,
-                );
-            }
+        for marker in &self.markers {
+            draw_marker(
+                &painter,
+                rect,
+                &self.projection,
+                marker,
+                self.marker_color,
+                now,
+            );
         }
         // Border.
         painter.rect_stroke(
@@ -304,54 +319,35 @@ fn draw_coastlines(
     }
 }
 
-/// Geochron-style grayline: a smooth gradient from transparent at the
-/// day/night boundary, through a warm twilight tint, into a deep navy at full
-/// night. Sampled on a 192×96 grid — vertex colors interpolate per-pixel.
-///
-/// `fade_at_night = true` collapses the deep-night dimming to transparent so
-/// an underlying night texture (city lights) stays visible — only the warm
-/// twilight band remains as a tint.
-fn draw_terminator(
-    painter: &egui::Painter,
-    rect: Rect,
-    night_dim: f32,
-    twilight: Color32,
-    night: Color32,
-    extent_deg: f32,
-    fade_at_night: bool,
-) {
-    const NX: usize = 192;
-    const NY: usize = 96;
-    let sub = Subsolar::at(Utc::now());
+/// Solar-elevation mesh resolution. Both `draw_terminator` and
+/// `draw_night_texture` sample on this grid; vertex colors interpolate
+/// per-pixel.
+const LIT_NX: usize = 192;
+const LIT_NY: usize = 96;
 
-    let mut mesh = Mesh::default();
-    let dx = rect.width() / NX as f32;
-    let dy = rect.height() / NY as f32;
-    for j in 0..=NY {
-        let v = j as f32 / NY as f32;
+/// Build a 192×96 mesh keyed off solar elevation. The closure receives
+/// `(u, v, elev_deg)` for each grid vertex and returns its `(uv, color)`.
+fn build_lit_mesh<F>(rect: Rect, sub: &Subsolar, mut mesh: Mesh, mut per_vertex: F) -> Mesh
+where
+    F: FnMut(f32, f32, f32) -> (Pos2, Color32),
+{
+    let dx = rect.width() / LIT_NX as f32;
+    let dy = rect.height() / LIT_NY as f32;
+    for j in 0..=LIT_NY {
+        let v = j as f32 / LIT_NY as f32;
         let lat = 90.0 - v * 180.0;
-        for i in 0..=NX {
-            let u = i as f32 / NX as f32;
+        for i in 0..=LIT_NX {
+            let u = i as f32 / LIT_NX as f32;
             let lon = -180.0 + u * 360.0;
             let elev = sub.elevation_at(lat, lon);
+            let (uv, color) = per_vertex(u, v, elev);
             let pos = pos2(rect.min.x + i as f32 * dx, rect.min.y + j as f32 * dy);
-            mesh.vertices.push(Vertex {
-                pos,
-                uv: egui::epaint::WHITE_UV,
-                color: terminator_color(
-                    elev,
-                    night_dim,
-                    twilight,
-                    night,
-                    extent_deg,
-                    fade_at_night,
-                ),
-            });
+            mesh.vertices.push(Vertex { pos, uv, color });
         }
     }
-    let stride = (NX + 1) as u32;
-    for j in 0..NY as u32 {
-        for i in 0..NX as u32 {
+    let stride = (LIT_NX + 1) as u32;
+    for j in 0..LIT_NY as u32 {
+        for i in 0..LIT_NX as u32 {
             let i00 = j * stride + i;
             let i10 = i00 + 1;
             let i01 = i00 + stride;
@@ -360,12 +356,47 @@ fn draw_terminator(
                 .extend_from_slice(&[i00, i10, i11, i00, i11, i01]);
         }
     }
+    mesh
+}
+
+/// Smoothstep "nightness" of a solar elevation: 0 on the day side, rising
+/// smoothly to 1 at `extent_deg` below the horizon.
+fn night_smoothstep(elev_deg: f32, extent_deg: f32) -> f32 {
+    if elev_deg >= 0.0 {
+        return 0.0;
+    }
+    let t = ((-elev_deg) / extent_deg).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// Geochron-style grayline: a smooth gradient from transparent at the
+/// day/night boundary, through a warm twilight tint, into a deep navy at full
+/// night.
+///
+/// `fade_at_night = true` collapses the deep-night dimming to transparent so
+/// an underlying night texture (city lights) stays visible — only the warm
+/// twilight band remains as a tint.
+#[allow(clippy::too_many_arguments)]
+fn draw_terminator(
+    painter: &egui::Painter,
+    rect: Rect,
+    sub: &Subsolar,
+    night_dim: f32,
+    twilight: Color32,
+    night: Color32,
+    extent_deg: f32,
+    fade_at_night: bool,
+) {
+    let mesh = build_lit_mesh(rect, sub, Mesh::default(), |_, _, elev| {
+        let color = terminator_color(elev, night_dim, twilight, night, extent_deg, fade_at_night);
+        (egui::epaint::WHITE_UV, color)
+    });
     painter.add(egui::Shape::mesh(mesh));
 }
 
 /// Color at a given solar elevation (degrees), as the *overlay* applied to the
 /// background. Day -> transparent. Twilight -> warm tint, alpha rising. Night
-/// -> deep navy at `night_dim` opacity. Smoothstep alpha keeps the band soft.
+/// -> deep navy at `night_dim` opacity.
 ///
 /// `fade_at_night = true` shapes the alpha into a bell that peaks in the
 /// twilight band and falls back to 0 at full night, so an underlying night
@@ -394,63 +425,33 @@ fn terminator_color(
         // Bell: 0 at day, peaks in the twilight band, 0 at full night.
         4.0 * t * (1.0 - t)
     } else {
-        // Smoothstep: 0 at day, rising to 1 at full night.
-        t * t * (3.0 - 2.0 * t)
+        night_smoothstep(elev_deg, extent_deg)
     };
     let alpha = (alpha_curve * night_dim * 255.0) as u8;
 
     Color32::from_rgba_unmultiplied(r, g, b, alpha)
 }
 
-/// Earth-at-night raster overlay. Drawn as the same 192×96 mesh used for the
-/// terminator, but textured and with per-vertex alpha that's 0 on the day side
-/// and rises smoothly to 1 in deep night.
-fn draw_night_texture(painter: &egui::Painter, rect: Rect, tex: &TextureHandle, extent_deg: f32) {
-    const NX: usize = 192;
-    const NY: usize = 96;
-    let sub = Subsolar::at(Utc::now());
-
-    let mut mesh = Mesh::with_texture(tex.id());
-    let dx = rect.width() / NX as f32;
-    let dy = rect.height() / NY as f32;
-    for j in 0..=NY {
-        let v = j as f32 / NY as f32;
-        let lat = 90.0 - v * 180.0;
-        for i in 0..=NX {
-            let u = i as f32 / NX as f32;
-            let lon = -180.0 + u * 360.0;
-            let elev = sub.elevation_at(lat, lon);
-            let alpha = if elev >= 0.0 {
-                0u8
-            } else {
-                let t = ((-elev) / extent_deg).clamp(0.0, 1.0);
-                let smooth = t * t * (3.0 - 2.0 * t);
-                (smooth * 255.0) as u8
-            };
-            let pos = pos2(rect.min.x + i as f32 * dx, rect.min.y + j as f32 * dy);
-            mesh.vertices.push(Vertex {
-                pos,
-                uv: pos2(u, v),
-                color: Color32::from_rgba_unmultiplied(255, 255, 255, alpha),
-            });
-        }
-    }
-    let stride = (NX + 1) as u32;
-    for j in 0..NY as u32 {
-        for i in 0..NX as u32 {
-            let i00 = j * stride + i;
-            let i10 = i00 + 1;
-            let i01 = i00 + stride;
-            let i11 = i01 + 1;
-            mesh.indices
-                .extend_from_slice(&[i00, i10, i11, i00, i11, i01]);
-        }
-    }
+/// Earth-at-night raster overlay: textured 192×96 mesh with per-vertex alpha
+/// matching the night-side smoothstep.
+fn draw_night_texture(
+    painter: &egui::Painter,
+    rect: Rect,
+    sub: &Subsolar,
+    tex: &TextureHandle,
+    extent_deg: f32,
+) {
+    let mesh = build_lit_mesh(rect, sub, Mesh::with_texture(tex.id()), |u, v, elev| {
+        let alpha = (night_smoothstep(elev, extent_deg) * 255.0) as u8;
+        (
+            pos2(u, v),
+            Color32::from_rgba_unmultiplied(255, 255, 255, alpha),
+        )
+    });
     painter.add(egui::Shape::mesh(mesh));
 }
 
-fn draw_subsolar(painter: &egui::Painter, rect: Rect, proj: &Equirectangular) {
-    let sub = Subsolar::at(Utc::now());
+fn draw_subsolar(painter: &egui::Painter, rect: Rect, sub: &Subsolar, proj: &Equirectangular) {
     let p = proj.project(
         rect,
         LatLon {

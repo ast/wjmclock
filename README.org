@@ -95,16 +95,20 @@ loaded from the config. A complete annotated example lives in
 | =no_cursor=  | bool   | =false=     | Hide the mouse cursor                  |
 | =background= | string | ="#0a0a14"= | Window background color (hex)          |
 
-** =[location]=
+** =[[marker]]=
 
-Set *either* a Maidenhead =locator= *or* both =lat= and =lon=.
+Repeatable. Each marker is a labelled point drawn on the map. Set *either* a
+Maidenhead =locator= *or* both =lat= and =lon=. When =timezone= is set, the
+marker's local time is drawn beneath its label.
 
-| Key       | Type   | Default  | Description                                |
-|-----------+--------+----------+--------------------------------------------|
-| =locator= | string | —        | Maidenhead grid locator (2/4/6/8 chars)    |
-| =lat=     | float  | —        | Latitude in degrees (-90..90)              |
-| =lon=     | float  | —        | Longitude in degrees (-180..180)           |
-| =label=   | string | ="HOME"= | Label drawn next to the home marker        |
+| Key        | Type   | Default | Description                                                |
+|------------+--------+---------+------------------------------------------------------------|
+| =locator=  | string | —       | Maidenhead grid locator (2/4/6/8 chars)                    |
+| =lat=      | float  | —       | Latitude in degrees (-90..90)                              |
+| =lon=      | float  | —       | Longitude in degrees (-180..180)                           |
+| =text=     | string | (req.)  | Label drawn next to the marker                             |
+| =kind=     | string | ="dot"= | Visual style (currently only =dot=)                        |
+| =timezone= | string | —       | IANA timezone (e.g. =Europe/Stockholm=) — adds a HH:MM line |
 
 ** =[[element]]= — shared keys
 
@@ -135,21 +139,22 @@ follow in the sections below.
 
 ** =type = "map"=
 
-| Key               | Type   | Default             | Description                                                 |
-|-------------------+--------+---------------------+-------------------------------------------------------------|
-| =projection=      | string | ="equirectangular"= | Projection (currently only equirectangular)                 |
-| =terminator=      | bool   | =true=              | Draw the day/night grayline gradient                        |
-| =day_color=       | string | ="#15233f"=         | Lit-ocean fill (must be brighter than =night_color=)        |
-| =night_color=     | string | ="#04091e"=         | Deep-night overlay color                                    |
-| =twilight_color=  | string | ="#ffb060"=         | Warm tint of the grayline band                              |
+| Key               | Type   | Default             | Description                                                       |
+|-------------------+--------+---------------------+-------------------------------------------------------------------|
+| =projection=      | string | ="equirectangular"= | Projection (currently only equirectangular)                       |
+| =texture=         | bool   | =false=             | Draw the bundled NE3 day basemap + Earth-at-Night overlay         |
+| =coastline=       | bool   | =true=              | Draw the vector coastline overlay                                 |
+| =terminator=      | bool   | =true=              | Draw the day/night grayline gradient                              |
+| =day_color=       | string | ="#15233f"=         | Lit-ocean fill (used when =texture = false=)                      |
+| =night_color=     | string | ="#04091e"=         | Deep-night overlay color (auto-fades when =texture = true=)       |
+| =twilight_color=  | string | ="#ffb060"=         | Warm tint of the grayline band                                    |
 | =twilight_extent= | float  | =12.0=              | Elevation° at full night: 6 civil / 12 nautical / 18 astronomical |
-| =night_dim=       | float  | =0.85=              | Night-overlay opacity (0..1)                                |
-| =coast_color=     | string | ="#39c08c"=         | Coastline polyline color                                    |
-| =grid=            | bool   | =true=              | Draw the 30° lat/lon grid                                   |
-| =grid_color=      | string | ="#1c3a3a"=         | Grid color                                                  |
-| =subsolar_marker= | bool   | =true=              | Draw the subsolar (overhead-sun) marker                     |
-| =home_marker=     | bool   | =true=              | Draw the home-location marker (needs =[location]=)          |
-| =home_color=      | string | ="#ff5577"=         | Home marker color                                           |
+| =night_dim=       | float  | =0.85=              | Night-overlay opacity (0..1)                                      |
+| =coast_color=     | string | ="#39c08c"=         | Coastline polyline color                                          |
+| =grid=            | bool   | =true=              | Draw the 30° lat/lon grid                                         |
+| =grid_color=      | string | ="#1c3a3a"=         | Grid color                                                        |
+| =subsolar_marker= | bool   | =true=              | Draw the subsolar (overhead-sun) marker                           |
+| =marker_color=    | string | ="#ff5577"=         | Color used for every =[[marker]]=                                 |
 
 * Cross-compile and deploy
 
