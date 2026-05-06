@@ -97,18 +97,17 @@ loaded from the config. A complete annotated example lives in
 
 ** =[[marker]]=
 
-Repeatable. Each marker is a labelled point drawn on the map. Set *either* a
-Maidenhead =locator= *or* both =lat= and =lon=. When =timezone= is set, the
+Repeatable. Each marker is a labelled point drawn on the map. =location= is
+either a Maidenhead locator string or an inline ={ lat, lon }= table — pick
+whichever is more natural for the place. When =timezone= is set, the
 marker's local time is drawn beneath its label.
 
-| Key        | Type   | Default | Description                                                |
-|------------+--------+---------+------------------------------------------------------------|
-| =locator=  | string | —       | Maidenhead grid locator (2/4/6/8 chars)                    |
-| =lat=      | float  | —       | Latitude in degrees (-90..90)                              |
-| =lon=      | float  | —       | Longitude in degrees (-180..180)                           |
-| =text=     | string | (req.)  | Label drawn next to the marker                             |
-| =kind=     | string | ="dot"= | Visual style (currently only =dot=)                        |
-| =timezone= | string | —       | IANA timezone (e.g. =Europe/Stockholm=) — adds a HH:MM line |
+| Key        | Type             | Default | Description                                                       |
+|------------+------------------+---------+-------------------------------------------------------------------|
+| =location= | string \vert table | (req.)  | ="JO67AQ"= (locator) *or* ={ lat = 57.7, lon = 12.0 }= (degrees) |
+| =text=     | string           | (req.)  | Label drawn next to the marker                                    |
+| =kind=     | string           | ="dot"= | Visual style (currently only =dot=)                               |
+| =timezone= | string           | —       | IANA timezone (e.g. =Europe/Stockholm=) — adds a HH:MM line       |
 
 ** =[[element]]= — shared keys
 

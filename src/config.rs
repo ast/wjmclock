@@ -18,17 +18,48 @@ pub struct Config {
     pub elements: Vec<ElementConfig>,
 }
 
-/// One map marker, settable as either a Maidenhead grid locator or raw lat/lon.
-/// Resolved to a `Marker` via `MarkerConfig::resolve` after parsing.
+/// Marker location: either a bare Maidenhead locator string or an inline
+/// `{ lat, lon }` table. Serde dispatches by input shape.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum LocationConfig {
+    Locator(String),
+    LatLon(LatLonConfig),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LatLonConfig {
+    pub lat: f32,
+    pub lon: f32,
+}
+
+impl LocationConfig {
+    fn resolve(&self) -> Result<LatLon, AppError> {
+        match self {
+            Self::Locator(s) => maidenhead::decode(s)
+                .map_err(|e| AppError::InvalidLocation(format!("locator {s:?}: {e}"))),
+            Self::LatLon(LatLonConfig { lat, lon }) => {
+                if !(-90.0..=90.0).contains(lat) || !(-180.0..=180.0).contains(lon) {
+                    return Err(AppError::InvalidLocation(format!(
+                        "lat/lon out of range: {lat}, {lon}"
+                    )));
+                }
+                Ok(LatLon {
+                    lat: *lat,
+                    lon: *lon,
+                })
+            }
+        }
+    }
+}
+
+/// One map marker. Resolved to a `Marker` via `MarkerConfig::resolve`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MarkerConfig {
-    /// Maidenhead grid locator, e.g. "JN58td".
-    pub locator: Option<String>,
-    /// Raw latitude in degrees (-90..=90). Used if `locator` is absent.
-    pub lat: Option<f32>,
-    /// Raw longitude in degrees (-180..=180). Used if `locator` is absent.
-    pub lon: Option<f32>,
+    /// `"JO67AQ"` (locator string) or `{ lat = 57.7, lon = 12.0 }` (inline table).
+    pub location: LocationConfig,
     /// Display text drawn next to the marker.
     pub text: String,
     /// Visual style. Currently only `"dot"` is supported.
@@ -58,21 +89,7 @@ pub struct Marker {
 
 impl MarkerConfig {
     pub fn resolve(&self) -> Result<Marker, AppError> {
-        let coord = if let Some(loc) = &self.locator {
-            maidenhead::decode(loc)
-                .map_err(|e| AppError::InvalidLocation(format!("locator {loc:?}: {e}")))?
-        } else if let (Some(lat), Some(lon)) = (self.lat, self.lon) {
-            if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
-                return Err(AppError::InvalidLocation(format!(
-                    "lat/lon out of range: {lat}, {lon}"
-                )));
-            }
-            LatLon { lat, lon }
-        } else {
-            return Err(AppError::InvalidLocation(
-                "set either `locator` or both `lat` and `lon`".into(),
-            ));
-        };
+        let coord = self.location.resolve()?;
         let kind = match self.kind.as_str() {
             "dot" => MarkerKind::Dot,
             other => {
@@ -276,5 +293,78 @@ mod tests {
         assert_eq!(cfg.window.width, 800);
         assert_eq!(cfg.elements.len(), 1);
         assert_eq!(cfg.elements[0].kind, "clock");
+    }
+
+    fn parse_marker(snippet: &str) -> MarkerConfig {
+        toml::from_str(snippet).unwrap()
+    }
+
+    #[test]
+    fn location_string_is_locator() {
+        let m = parse_marker(
+            r#"
+                location = "JO67AQ"
+                text     = "GÖTEBORG"
+            "#,
+        );
+        assert!(matches!(m.location, LocationConfig::Locator(ref s) if s == "JO67AQ"));
+    }
+
+    #[test]
+    fn location_table_is_latlon() {
+        let m = parse_marker(
+            r#"
+                location = { lat = -5.79, lon = -35.21 }
+                text     = "NATAL"
+            "#,
+        );
+        match m.location {
+            LocationConfig::LatLon(LatLonConfig { lat, lon }) => {
+                assert!((lat - -5.79).abs() < 1e-4);
+                assert!((lon - -35.21).abs() < 1e-4);
+            }
+            other => panic!("expected LatLon, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn location_table_rejects_unknown_keys() {
+        let snippet = r#"
+            location = { lat = 0.0, lon = 0.0, foo = 1 }
+            text     = "x"
+        "#;
+        assert!(toml::from_str::<MarkerConfig>(snippet).is_err());
+    }
+
+    #[test]
+    fn location_rejects_other_shapes() {
+        let snippet = r#"
+            location = 5
+            text     = "x"
+        "#;
+        assert!(toml::from_str::<MarkerConfig>(snippet).is_err());
+    }
+
+    #[test]
+    fn resolve_rejects_out_of_range_latlon() {
+        let m = parse_marker(
+            r#"
+                location = { lat = 91.0, lon = 0.0 }
+                text     = "x"
+            "#,
+        );
+        let err = m.resolve().unwrap_err().to_string();
+        assert!(err.contains("out of range"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_surfaces_locator_error() {
+        let m = parse_marker(
+            r#"
+                location = "ZZ99"
+                text     = "x"
+            "#,
+        );
+        assert!(m.resolve().is_err());
     }
 }

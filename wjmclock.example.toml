@@ -15,19 +15,17 @@ fullscreen = false
 no_cursor  = false
 background = "#0a0a14"
 
-# Map markers. Add as many as you like. Each marker takes either
-#   locator = "JO67AQ"      # Maidenhead grid (2/4/6/8 chars)
-#   lat = 57.7; lon = 12.0  # raw degrees (-90..=90, -180..=180)
-# `kind` defaults to "dot". When `timezone` is set, the marker's local time
-# is drawn beneath its text.
+# Map markers. Add as many as you like. `location` is either a Maidenhead
+# locator string (2/4/6/8 chars) or an inline { lat, lon } table in decimal
+# degrees. `kind` defaults to "dot". When `timezone` is set, the marker's
+# local time is drawn beneath its text.
 [[marker]]
-locator  = "JO67AQ"
+location = "JO67AQ"
 text     = "GÖTEBORG"
 timezone = "Europe/Stockholm"
 
 [[marker]]
-lat      = -5.79
-lon      = -35.21
+location = { lat = -5.79, lon = -35.21 }
 text     = "NATAL"
 timezone = "America/Recife"
 
