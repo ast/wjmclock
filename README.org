@@ -6,21 +6,29 @@
 
 * About
 
-A modern, Rust + [[https://www.egui.rs/][egui]] reimplementation of [[https://www.hamclock.com/][HamClock]] in a Cold-War
-control-room aesthetic: a clock alongside a vector world map with a
-[[https://en.wikipedia.org/wiki/Grey_line_(radio_propagation)][grayline]] (day/night terminator) sweeping across it. Built primarily for a
-Raspberry Pi 4 driving a 1920×1080 wall display, but it scales cleanly to other
-resolutions.
+A modern, Rust + [[https://www.egui.rs/][egui]] reimplementation of [[https://www.hamclock.com/][HamClock]] for the ham radio shack:
+clocks alongside a world map with a [[https://en.wikipedia.org/wiki/Grey_line_(radio_propagation)][grayline]] (day/night terminator), HF
+band-condition readout, and per-marker propagation predictions. Built primarily
+for a Raspberry Pi 4 driving a 1920×1080 wall display, but it scales cleanly to
+other resolutions.
 
 The grayline is rendered Geochron-style: a smooth gradient from transparent
-daylight, through a warm twilight band, into a deep navy night. Coastlines are
-drawn as polylines from public-domain Natural Earth data; the home location is
-marked from a Maidenhead grid locator; the subsolar point is shown so you can
-tell at a glance where the sun is overhead right now.
+daylight, through a warm twilight band, into a deep navy night. The map base
+is Tom Patterson's *Natural Earth III* shaded relief on the day side with the
+*Earth at Night* city-lights raster alpha-masked over the night side
+(coastlines and a 30° grid are optional overlays). The subsolar point is shown
+so you can tell at a glance where the sun is overhead right now.
 
-The display is data-driven — every element on screen (clock, callsign, map) is
-a TOML entry that you can position, recolor, and add or remove. Multiple
-clocks for different time zones are first-class.
+The propagation overlay polls open data once an hour — solar indices (SFI,
+K-index) from [[https://services.swpc.noaa.gov/][NOAA SWPC]] for a HamQSL-style HF
+band-conditions table, and per-path MUF/LUF predictions from
+[[https://prop.kc2g.com/][KC2G prop.kc2g.com]] for "open bands from the shack to each marker right now."
+All network I/O happens on a worker thread; the UI thread never blocks.
+
+The display is data-driven — every element on screen (clocks, callsign, map,
+propagation) is a TOML entry that you can position, recolor, and add or
+remove. Multiple clocks for different time zones are first-class, and any
+number of map markers can be added with optional local-time labels.
 
 * Build
 
