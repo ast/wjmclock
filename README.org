@@ -13,8 +13,8 @@ curl -fsSL https://raw.githubusercontent.com/ast/wjmclock/main/scripts/install.s
 Downloads the right pre-built binary into =~/wjmclock=, grabs the
 example config, checks that the OpenGL / Wayland / X11 runtime
 libraries are present, and launches. The script never uses ~sudo~ and
-never installs anything — if a library is missing it prints the ~apt
-install~ command for you to run yourself.
+never installs anything — if a library is missing it prints the
+~apt install~ command for you to run yourself.
 
 You can check the script here: [[file:scripts/install.sh][scripts/install.sh]]
 
