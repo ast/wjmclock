@@ -1,0 +1,74 @@
+name: Release
+
+# Triggers on a `v*` tag push (e.g. `v0.1.0`). Builds the same matrix as
+# build.yml and attaches every binary — full + stripped, x86_64 + aarch64
+# — to a GitHub Release at the tag.
+#
+# Code-quality gates (fmt, clippy, test) are intentionally left to
+# build.yml on the underlying commit; this workflow only ships artefacts.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # needed to create / upload to the release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runs_on: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runs_on: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install GUI dev libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes \
+            pkg-config \
+            libgl-dev libegl-dev \
+            libwayland-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxcursor-dev libxi-dev libxrandr-dev
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Stage release binaries
+        run: |
+          mkdir -p dist
+          VERSION="${GITHUB_REF#refs/tags/}"
+          BASE="wjmclock-${VERSION}-${{ matrix.target }}"
+          cp target/release/wjmclock "dist/${BASE}"
+          cp target/release/wjmclock "dist/${BASE}-stripped"
+          strip --strip-unneeded "dist/${BASE}-stripped"
+          ls -lh dist/
+
+      # Each matrix leg uploads its own files to the same release. The
+      # action creates the release on first call and appends on subsequent
+      # ones (idempotent across legs).
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true

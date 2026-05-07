@@ -30,7 +30,30 @@ propagation) is a TOML entry that you can position, recolor, and add or
 remove. Multiple clocks for different time zones are first-class, and any
 number of map markers can be added with optional local-time labels.
 
+* Pre-built binaries
+
+Tagged releases ship Linux binaries for both ~x86_64~ and ~aarch64~ on the
+[[https://github.com/ast/wjmclock/releases/latest][Releases page]]. Each release contains four files — full and stripped variants
+per architecture:
+
+| File suffix                                         | Use                                          |
+|-----------------------------------------------------+----------------------------------------------|
+| =-x86_64-unknown-linux-gnu=                         | Desktop / server, full symbols               |
+| =-x86_64-unknown-linux-gnu-stripped=                | Desktop / server, ~12% smaller               |
+| =-aarch64-unknown-linux-gnu=                        | Raspberry Pi 4/5, full symbols               |
+| =-aarch64-unknown-linux-gnu-stripped=               | Raspberry Pi 4/5, smaller                    |
+
+The binaries are built on Ubuntu 22.04, so they require glibc ≥ 2.35 (Ubuntu
+22.04+, Debian 12+, Pi OS bookworm+, RHEL 9+). Runtime deps are the same as
+a local build — see [[#build][Build]] below.
+
+For rolling builds from ~main~ (between releases), see the [[https://github.com/ast/wjmclock/actions/workflows/build.yml][build workflow]] —
+each successful run keeps its artefacts for 30 days.
+
 * Build
+:PROPERTIES:
+:CUSTOM_ID: build
+:END:
 
 Requires a recent stable Rust toolchain (edition 2024).
 
