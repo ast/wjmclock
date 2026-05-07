@@ -4,17 +4,20 @@ use crate::error::AppError;
 pub mod callsign;
 pub mod clock;
 pub mod map;
+pub mod propagation;
 
 pub use callsign::Callsign;
 pub use clock::Clock;
 pub use map::Map;
+pub use propagation::Propagation;
 
-/// Globals available to every element at construction time. Currently just the
-/// configured map markers; designed to grow (units, language, etc.) without
-/// breaking element APIs.
+/// Globals available to every element at construction time.
+/// `markers` includes the home marker (if configured); `home` is also kept
+/// separately for non-map consumers (e.g., the propagation widget).
 #[derive(Debug, Clone, Default)]
 pub struct Globals {
     pub markers: Vec<Marker>,
+    pub home: Option<Marker>,
 }
 
 /// A drawable, configurable widget placed in a fractional rect of the window.
@@ -47,6 +50,12 @@ pub fn make_element(cfg: &ElementConfig, globals: &Globals) -> Result<Box<dyn El
             .map_err(|e| AppError::ElementConfig {
                 kind: cfg.kind.clone(),
                 source: e.context("callsign"),
+            }),
+        "propagation" => Propagation::from_toml(extra, globals)
+            .map(|e| Box::new(e) as Box<dyn Element>)
+            .map_err(|e| AppError::ElementConfig {
+                kind: cfg.kind.clone(),
+                source: e,
             }),
         other => Err(AppError::UnknownElement(other.into())),
     }

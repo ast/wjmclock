@@ -12,6 +12,10 @@ use std::path::{Path, PathBuf};
 pub struct Config {
     #[serde(default)]
     pub window: WindowConfig,
+    /// The station QTH. Drawn on the map like any other marker, and reused
+    /// by the propagation widget as the "from" end of path predictions.
+    #[serde(default)]
+    pub home: Option<MarkerConfig>,
     #[serde(default, rename = "marker")]
     pub markers: Vec<MarkerConfig>,
     #[serde(default, rename = "element")]
@@ -202,6 +206,7 @@ impl Config {
     fn default() -> Self {
         Self {
             window: WindowConfig::default(),
+            home: None,
             markers: Vec::new(),
             elements: default_elements(),
         }

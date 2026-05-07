@@ -95,6 +95,13 @@ loaded from the config. A complete annotated example lives in
 | =no_cursor=  | bool   | =false=     | Hide the mouse cursor                  |
 | =background= | string | ="#0a0a14"= | Window background color (hex)          |
 
+** =[home]=
+
+The station QTH. Optional, but required when a =type = "propagation"=
+element is configured. Same shape as =[[marker]]= — the home is drawn on
+the map alongside any other markers, and the propagation widget uses it as
+the "from" end of path predictions.
+
 ** =[[marker]]=
 
 Repeatable. Each marker is a labelled point drawn on the map. =location= is
@@ -116,7 +123,7 @@ follow in the sections below.
 
 | Key    | Type   | Description                                              |
 |--------+--------+----------------------------------------------------------|
-| =type= | string | =clock=, =map=, or =callsign=                            |
+| =type= | string | =clock=, =map=, =callsign=, or =propagation=             |
 | =rect= | table  | ={ x, y, w, h }= as fractions of the window (0..1)       |
 
 ** =type = "clock"=
@@ -154,6 +161,19 @@ follow in the sections below.
 | =grid_color=      | string | ="#1c3a3a"=         | Grid color                                                        |
 | =subsolar_marker= | bool   | =true=              | Draw the subsolar (overhead-sun) marker                           |
 | =marker_color=    | string | ="#ff5577"=         | Color used for every =[[marker]]=                                 |
+
+** =type = "propagation"=
+
+HF propagation overlay. Fetches solar indices from
+[[https://services.swpc.noaa.gov/][NOAA SWPC]] and per-path MUF/LUF predictions from
+[[https://prop.kc2g.com/][KC2G prop.kc2g.com]] once an hour, in a background worker thread (UI never
+blocks). Renders a global HF band-conditions table and per-marker
+"open bands from home" predictions. Requires =[home]= to be set.
+
+| Key                | Type | Default | Description                                              |
+|--------------------+------+---------+----------------------------------------------------------|
+| =band_conditions=  | bool | =true=  | Show HF band table (Day/Night Good/Fair/Poor per band)   |
+| =path_predictions= | bool | =true=  | Show open bands from =[home]= to each =[[marker]]=       |
 
 * Cross-compile and deploy
 

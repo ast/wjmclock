@@ -15,15 +15,17 @@ fullscreen = false
 no_cursor  = false
 background = "#0a0a14"
 
-# Map markers. Add as many as you like. `location` is either a Maidenhead
-# locator string (2/4/6/8 chars) or an inline { lat, lon } table in decimal
-# degrees. `kind` defaults to "dot". When `timezone` is set, the marker's
-# local time is drawn beneath its text.
-[[marker]]
+# The station QTH. Drawn on the map like any other marker, and used by the
+# propagation widget as the "from" end of path predictions. Same shape as
+# [[marker]]: location is a Maidenhead string or an inline { lat, lon } table.
+[home]
 location = "JO67AQ"
-text     = "GÖTEBORG"
+text     = "SHACK"
 timezone = "Europe/Stockholm"
 
+# Additional map markers. `location` accepts a Maidenhead locator string
+# (2/4/6/8 chars) or an inline { lat, lon } table in decimal degrees. When
+# `timezone` is set, the marker's local time is drawn beneath its text.
 [[marker]]
 location = { lat = -5.79, lon = -35.21 }
 text     = "NATAL"
@@ -74,3 +76,12 @@ marker_color    = "#ff5577"
 # deep-night dimming auto-fades so the city lights stay visible.
 texture         = true
 coastline       = true           # turn off vector coastlines (the bundled texture has its own)
+
+# HF propagation overlay (lower-right of the map). Pulls solar indices from
+# NOAA SWPC and per-path MUF/LUF from KC2G prop.kc2g.com once an hour, in a
+# worker thread. Requires [home] to be set. Comment out to disable.
+[[element]]
+type             = "propagation"
+rect             = { x = 0.66, y = 0.55, w = 0.33, h = 0.43 }
+band_conditions  = true     # global HF band ratings derived from SFI + K-index
+path_predictions = true     # per-marker openings derived from KC2G ray-tracing

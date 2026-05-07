@@ -12,11 +12,18 @@ pub struct App {
 impl App {
     pub fn new(_cc: &eframe::CreationContext<'_>, config: Config) -> Result<Self, AppError> {
         let bg = config.window.background.into();
-        let mut markers = Vec::with_capacity(config.markers.len());
+        let home = match &config.home {
+            Some(h) => Some(h.resolve()?),
+            None => None,
+        };
+        let mut markers = Vec::with_capacity(config.markers.len() + 1);
+        if let Some(h) = &home {
+            markers.push(h.clone());
+        }
         for m in &config.markers {
             markers.push(m.resolve()?);
         }
-        let globals = Globals { markers };
+        let globals = Globals { markers, home };
         let mut elements: Vec<(FractionalRect, Box<dyn Element>)> = Vec::new();
         for el in &config.elements {
             let e = make_element(el, &globals)?;

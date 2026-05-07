@@ -6,6 +6,7 @@ mod elements;
 mod error;
 mod geo;
 mod layout;
+mod propagation;
 mod textures;
 
 use anyhow::Context;
