@@ -71,6 +71,21 @@ each successful run keeps its artefacts for 30 days.
 
 Requires a recent stable Rust toolchain (edition 2024).
 
+** Install with cargo
+
+If you have a Rust toolchain set up, ~cargo install~ pulls and builds
+straight from the repo (drops the binary in =~/.cargo/bin/wjmclock=):
+
+#+begin_src bash
+# Latest tagged release
+cargo install --git https://github.com/ast/wjmclock --tag v0.1.1 --locked
+
+# Or the tip of main
+cargo install --git https://github.com/ast/wjmclock --locked
+#+end_src
+
+** Build from a checkout
+
 #+begin_src bash
 cargo build --release
 #+end_src
@@ -107,6 +122,23 @@ just run                                  # cargo run with the example config
 =wjmclock 0.1.0 (e057858)= (with =-dirty= when the working tree has uncommitted
 changes).
 
+** Shell completion
+
+=--completion <SHELL>= prints a completion script and exits. Supported
+shells: =bash=, =zsh=, =fish=, =powershell=, =elvish=.
+
+#+begin_src bash
+# zsh / bash — source for the current shell session
+source <(wjmclock --completion zsh)
+source <(wjmclock --completion bash)
+
+# fish
+wjmclock --completion fish | source
+#+end_src
+
+For a permanent install, write the script into your shell's completion
+directory, e.g. =~/.local/share/zsh/site-functions/_wjmclock= for zsh.
+
 * Configuration
 
 wjmclock looks for a TOML config in this order:
@@ -117,7 +149,7 @@ wjmclock looks for a TOML config in this order:
 
 If none exist, sensible defaults are used. CLI flags always override values
 loaded from the config. A complete annotated example lives in
-[[file:wjmclock.example.toml][=wjmclock.example.toml=]].
+[[file:wjmclock.example.toml][wjmclock.example.toml]].
 
 ** CLI flags
 
@@ -237,17 +269,6 @@ just deploy pi@elsewhere    # same flow, different host
 #+begin_src bash
 ./wjmclock --fullscreen --no-cursor
 #+end_src
-
-* Capturing the screenshot
-
-Wayland (wlroots / Hyprland / sway):
-
-#+begin_src bash
-grim -g "$(slurp)" docs/screenshot.png
-#+end_src
-
-(Drag a region or click within the wjmclock window — slurp will snap to its
-bounds.)
 
 * Acknowledgements
 

@@ -1,4 +1,5 @@
 use clap::Parser;
+use clap_complete::Shell;
 use std::path::PathBuf;
 
 /// "0.1.0 (a1b2c3d)" or "0.1.0 (a1b2c3d-dirty)". `GIT_COMMIT` is set by build.rs.
@@ -30,4 +31,9 @@ pub struct Cli {
     /// Hide the mouse cursor (kiosk mode).
     #[arg(long)]
     pub no_cursor: bool,
+
+    /// Print a shell completion script and exit.
+    /// Use as: source <(wjmclock --completion zsh)
+    #[arg(long, value_name = "SHELL")]
+    pub completion: Option<Shell>,
 }

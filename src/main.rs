@@ -10,10 +10,19 @@ mod propagation;
 mod textures;
 
 use anyhow::Context;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 fn main() -> anyhow::Result<()> {
     let cli = cli::Cli::parse();
+
+    // `--completion <SHELL>` is a side-effect-free "print and exit" mode.
+    // Handle it before any config load or eframe init so it's cheap.
+    if let Some(shell) = cli.completion {
+        let mut cmd = cli::Cli::command();
+        clap_complete::generate(shell, &mut cmd, "wjmclock", &mut std::io::stdout());
+        return Ok(());
+    }
+
     let cfg = config::Config::load(&cli).context("load config")?;
 
     let viewport = egui::ViewportBuilder::default()
