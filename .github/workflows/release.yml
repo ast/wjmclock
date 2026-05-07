@@ -53,11 +53,14 @@ jobs:
       - name: Build
         run: cargo build --release --locked
 
+      # Filenames intentionally don't include the version — the release page
+      # itself carries the tag. Predictable names mean
+      # `releases/latest/download/wjmclock-<target>-stripped` works as a
+      # stable URL across releases (used by the README quick-try snippet).
       - name: Stage release binaries
         run: |
           mkdir -p dist
-          VERSION="${GITHUB_REF#refs/tags/}"
-          BASE="wjmclock-${VERSION}-${{ matrix.target }}"
+          BASE="wjmclock-${{ matrix.target }}"
           cp target/release/wjmclock "dist/${BASE}"
           cp target/release/wjmclock "dist/${BASE}-stripped"
           strip --strip-unneeded "dist/${BASE}-stripped"
