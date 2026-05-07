@@ -1,0 +1,88 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runs_on: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runs_on: ubuntu-22.04-arm
+    # Build on the oldest supported Ubuntu so the resulting binary's glibc
+    # requirement is the lowest available — wider distro compatibility.
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install just
+        uses: taiki-e/install-action@just
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # Same set as Cross.toml's pre-build (minus the :arm64 cross suffix).
+      # eframe/egui pulls these in transitively for GL/EGL + Wayland + X11.
+      - name: Install GUI dev libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes \
+            pkg-config \
+            libgl-dev libegl-dev \
+            libwayland-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxcursor-dev libxi-dev libxrandr-dev
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Test
+        run: cargo test --release
+
+      # Two artefacts: full (with debug symbols, useful for crash reports)
+      # and stripped (~30–50% smaller). `strip` is in binutils, present on
+      # every ubuntu-* runner.
+      - name: Stage binaries
+        run: |
+          mkdir -p dist
+          cp target/release/wjmclock dist/wjmclock
+          cp target/release/wjmclock dist/wjmclock-stripped
+          strip --strip-unneeded dist/wjmclock-stripped
+          ls -lh dist/
+
+      - name: Upload full binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wjmclock-${{ matrix.target }}
+          path: dist/wjmclock
+          retention-days: 30
+
+      - name: Upload stripped binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wjmclock-${{ matrix.target }}-stripped
+          path: dist/wjmclock-stripped
+          retention-days: 30
