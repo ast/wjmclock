@@ -4,7 +4,7 @@
 
 [[file:docs/screenshot.png]]
 
-* Quick try
+* TL;DR
 
 #+begin_src bash
 curl -fsSL https://raw.githubusercontent.com/ast/wjmclock/main/scripts/install.sh | bash
