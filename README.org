@@ -6,18 +6,17 @@
 
 * Quick try
 
-Linux x86_64 or aarch64 (Raspberry Pi 4/5). One line: downloads the right
-pre-built binary into =~/wjmclock=, grabs the example config, checks that
-the OpenGL / Wayland / X11 runtime libraries are present, and launches.
-The script never uses ~sudo~ and never installs anything — if a library is
-missing it prints the exact ~apt install~ command for you to run yourself.
-
 #+begin_src bash
 curl -fsSL https://raw.githubusercontent.com/ast/wjmclock/main/scripts/install.sh | bash
 #+end_src
 
-Read the script first if you'd rather:
-[[file:scripts/install.sh][~scripts/install.sh~]] (~30 lines of logic, plain bash).
+Downloads the right pre-built binary into =~/wjmclock=, grabs the
+example config, checks that the OpenGL / Wayland / X11 runtime
+libraries are present, and launches. The script never uses ~sudo~ and
+never installs anything — if a library is missing it prints the ~apt
+install~ command for you to run yourself.
+
+You can check the script here: [[file:scripts/install.sh][scripts/install.sh]]
 
 * About
 
