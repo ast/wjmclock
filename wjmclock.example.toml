@@ -9,11 +9,12 @@
 # anything set here.
 
 [window]
-width      = 1920
-height     = 1080
-fullscreen = false
-no_cursor  = false
-background = "#0a0a14"
+width            = 1920
+height           = 1080
+fullscreen       = false
+no_cursor        = false
+background       = "#0a0a14"
+top_panel_height = 0.22   # fraction of window height reserved for the top panel
 
 # The station QTH. Drawn on the map like any other marker, and used by the
 # propagation widget as the "from" end of path predictions. Same shape as
@@ -31,34 +32,48 @@ location = { lat = -5.79, lon = -35.21 }
 text     = "NATAL"
 timezone = "America/Recife"
 
-# UTC time, top-left.
-[[element]]
-type     = "clock"
-rect     = { x = 0.00, y = 0.00, w = 0.30, h = 0.22 }
-timezone = "UTC"
-format   = "24h"
-color    = "#7df5d2"
+# UI elements are placed by `slot`:
+#   slot = "top"     → pinned in the top panel; `align = "left" | "right"`
+#                      controls which side, optional `width` (fraction of
+#                      window width) overrides the equal split.
+#   slot = "center"  → fills the central panel (exactly one element).
+#   slot = "window"  → floating, drag-/resize-able egui window; `rect`
+#                      sets the initial pos+size as fractions of the window,
+#                      `title` is the title-bar text, `open = true|false`
+#                      controls visibility on startup.
 
-# Operator callsign, top-centre. Subtitle is optional.
+# Operator callsign, top-left of the top panel.
 [[element]]
 type     = "callsign"
-rect     = { x = 0.30, y = 0.00, w = 0.40, h = 0.22 }
+slot     = "top"
+align    = "left"
 call     = "SM6WJM"
 subtitle = "JO67AQ — GÖTEBORG"
 color    = "#ffd66b"
 
-# Local time, top-right.
+# UTC time, top-right.
 [[element]]
 type     = "clock"
-rect     = { x = 0.70, y = 0.00, w = 0.30, h = 0.22 }
+slot     = "top"
+align    = "right"
+timezone = "UTC"
+format   = "24h"
+color    = "#7df5d2"
+
+# Local time, top-right (rendered to the left of the UTC clock; right-aligned
+# elements are packed right-to-left in declaration order).
+[[element]]
+type     = "clock"
+slot     = "top"
+align    = "right"
 timezone = "Europe/Stockholm"
 format   = "24h"
 color    = "#f5d27d"
 
-# World map with Geochron-style grayline across the bottom.
+# World map fills the central panel below the top panel.
 [[element]]
 type            = "map"
-rect            = { x = 0.0, y = 0.22, w = 1.0, h = 0.78 }
+slot            = "center"
 projection      = "equirectangular"
 terminator      = true
 day_color       = "#15233f"   # lit-ocean fill (must be brighter than night_color)
@@ -77,11 +92,14 @@ marker_color    = "#ff5577"
 texture         = true
 coastline       = true           # turn off vector coastlines (the bundled texture has its own)
 
-# HF propagation overlay (lower-right of the map). Pulls solar indices from
+# HF propagation overlay in a movable window. Pulls solar indices from
 # NOAA SWPC and per-path MUF/LUF from KC2G prop.kc2g.com once an hour, in a
 # worker thread. Requires [home] to be set. Comment out to disable.
 [[element]]
 type             = "propagation"
+slot             = "window"
+title            = "Propagation"
 rect             = { x = 0.66, y = 0.55, w = 0.33, h = 0.43 }
+open             = true
 band_conditions  = true     # global HF band ratings derived from SFI + K-index
 path_predictions = true     # per-marker openings derived from KC2G ray-tracing

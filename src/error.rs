@@ -32,4 +32,10 @@ pub enum AppError {
 
     #[error("invalid location: {0}")]
     InvalidLocation(String),
+
+    #[error("more than one element has slot=\"center\"; only one is allowed")]
+    MultipleCenterElements,
+
+    #[error("invalid slot config for {kind}: {msg}")]
+    InvalidSlot { kind: String, msg: String },
 }

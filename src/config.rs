@@ -131,6 +131,9 @@ pub struct WindowConfig {
     pub no_cursor: bool,
     #[serde(default = "default_background")]
     pub background: Color,
+    /// Height of the top panel as a fraction of window height (0..1).
+    #[serde(default = "default_top_panel_height")]
+    pub top_panel_height: f32,
 }
 
 fn default_width() -> u32 {
@@ -142,6 +145,9 @@ fn default_height() -> u32 {
 fn default_background() -> Color {
     Color::rgb(0x0a, 0x0a, 0x14)
 }
+fn default_top_panel_height() -> f32 {
+    0.22
+}
 
 impl Default for WindowConfig {
     fn default() -> Self {
@@ -151,19 +157,57 @@ impl Default for WindowConfig {
             fullscreen: false,
             no_cursor: false,
             background: default_background(),
+            top_panel_height: default_top_panel_height(),
         }
     }
 }
 
 /// One TOML `[[element]]` entry. The element-specific keys are captured in
-/// `extra` and parsed by the element constructor.
+/// `extra` and parsed by the element constructor; the slot-positioning keys
+/// (`slot`, `align`, `width`, `rect`, `open`, `title`) are consumed here.
 #[derive(Debug, Deserialize)]
 pub struct ElementConfig {
     #[serde(rename = "type")]
     pub kind: String,
-    pub rect: FractionalRect,
+    pub slot: SlotKind,
+    /// Used by `slot = "top"`. Default left.
+    #[serde(default)]
+    pub align: TopAlign,
+    /// Used by `slot = "top"`. Optional fractional width (0..1 of window width);
+    /// when omitted, top elements split their side of the panel equally.
+    #[serde(default)]
+    pub width: Option<f32>,
+    /// Used by `slot = "window"`. Initial pos+size as fractions of the window.
+    #[serde(default)]
+    pub rect: Option<FractionalRect>,
+    /// Used by `slot = "window"`. Whether the window is shown on startup.
+    #[serde(default = "default_true")]
+    pub open: bool,
+    /// Used by `slot = "window"`. Title-bar text.
+    #[serde(default)]
+    pub title: Option<String>,
     #[serde(flatten)]
     pub extra: toml::Table,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SlotKind {
+    Top,
+    Center,
+    Window,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TopAlign {
+    #[default]
+    Left,
+    Right,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -242,7 +286,8 @@ fn resolve_config_path(cli: &Cli) -> Option<PathBuf> {
     if local.exists() { Some(local) } else { None }
 }
 
-/// Default layout used when no config is found: clock top-left, map below.
+/// Default layout used when no config is found: clock pinned top-right,
+/// map filling the central panel.
 fn default_elements() -> Vec<ElementConfig> {
     let mut clock = toml::Table::new();
     clock.insert("timezone".into(), "UTC".into());
@@ -256,22 +301,22 @@ fn default_elements() -> Vec<ElementConfig> {
     vec![
         ElementConfig {
             kind: "clock".into(),
-            rect: FractionalRect {
-                x: 0.0,
-                y: 0.0,
-                w: 0.45,
-                h: 0.25,
-            },
+            slot: SlotKind::Top,
+            align: TopAlign::Right,
+            width: None,
+            rect: None,
+            open: true,
+            title: None,
             extra: clock,
         },
         ElementConfig {
             kind: "map".into(),
-            rect: FractionalRect {
-                x: 0.0,
-                y: 0.25,
-                w: 1.0,
-                h: 0.75,
-            },
+            slot: SlotKind::Center,
+            align: TopAlign::default(),
+            width: None,
+            rect: None,
+            open: true,
+            title: None,
             extra: map,
         },
     ]
@@ -290,7 +335,7 @@ mod tests {
 
             [[element]]
             type = "clock"
-            rect = { x = 0.0, y = 0.0, w = 1.0, h = 0.2 }
+            slot = "top"
             timezone = "UTC"
             format = "24h"
         "#;
@@ -298,6 +343,66 @@ mod tests {
         assert_eq!(cfg.window.width, 800);
         assert_eq!(cfg.elements.len(), 1);
         assert_eq!(cfg.elements[0].kind, "clock");
+        assert!(matches!(cfg.elements[0].slot, SlotKind::Top));
+    }
+
+    #[test]
+    fn parses_top_align_and_width() {
+        let toml = r#"
+            [[element]]
+            type  = "callsign"
+            slot  = "top"
+            align = "right"
+            width = 0.25
+            call  = "SM6WJM"
+        "#;
+        let cfg: Config = toml::from_str(toml).unwrap();
+        let el = &cfg.elements[0];
+        assert!(matches!(el.slot, SlotKind::Top));
+        assert!(matches!(el.align, TopAlign::Right));
+        assert_eq!(el.width, Some(0.25));
+    }
+
+    #[test]
+    fn parses_window_slot() {
+        let toml = r#"
+            [[element]]
+            type  = "propagation"
+            slot  = "window"
+            title = "Propagation"
+            rect  = { x = 0.66, y = 0.55, w = 0.33, h = 0.43 }
+            open  = true
+        "#;
+        let cfg: Config = toml::from_str(toml).unwrap();
+        let el = &cfg.elements[0];
+        assert!(matches!(el.slot, SlotKind::Window));
+        assert!(el.open);
+        assert_eq!(el.title.as_deref(), Some("Propagation"));
+        let r = el.rect.expect("window rect");
+        assert!((r.x - 0.66).abs() < 1e-4);
+        assert!((r.h - 0.43).abs() < 1e-4);
+    }
+
+    #[test]
+    fn rejects_unknown_slot() {
+        let toml = r#"
+            [[element]]
+            type = "clock"
+            slot = "bottom"
+        "#;
+        assert!(toml::from_str::<Config>(toml).is_err());
+    }
+
+    #[test]
+    fn parses_bundled_example_config() {
+        let text = include_str!("../wjmclock.example.toml");
+        let cfg: Config = toml::from_str(text).expect("example config must parse");
+        assert!(
+            cfg.elements
+                .iter()
+                .any(|e| matches!(e.slot, SlotKind::Center)),
+            "example must include a center-slot element"
+        );
     }
 
     fn parse_marker(snippet: &str) -> MarkerConfig {
