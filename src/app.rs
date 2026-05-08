@@ -72,15 +72,16 @@ impl App {
                         msg: "slot=\"window\" requires `rect = { x, y, w, h }`".into(),
                     })?;
                     let title = window_title(cfg);
-                    let toggle_key = match &cfg.key {
-                        None => None,
-                        Some(s) => {
-                            Some(egui::Key::from_name(s).ok_or_else(|| AppError::InvalidSlot {
-                                kind: cfg.kind.clone(),
-                                msg: format!("unknown key name {s:?}"),
-                            })?)
-                        }
-                    };
+                    let toggle_key =
+                        match &cfg.key {
+                            None => None,
+                            Some(s) => Some(egui::Key::from_name(s).ok_or_else(|| {
+                                AppError::InvalidSlot {
+                                    kind: cfg.kind.clone(),
+                                    msg: format!("unknown key name {s:?}"),
+                                }
+                            })?),
+                        };
                     windows.push(WindowEntry {
                         element,
                         title,

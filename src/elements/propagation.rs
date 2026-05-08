@@ -13,7 +13,9 @@ use crate::propagation::bands::{HF_BANDS, Rating};
 use crate::propagation::{PropagationService, PropagationSnapshot, Target, bands, kc2g};
 use anyhow::{Context, Result, anyhow};
 use chrono::{Timelike, Utc};
-use egui::{Align, Align2, Color32, FontId, Layout, Rect, RichText, Sense, Stroke, UiBuilder, vec2};
+use egui::{
+    Align, Align2, Color32, FontId, Layout, Rect, RichText, Sense, Stroke, UiBuilder, vec2,
+};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -149,19 +151,9 @@ impl Element for Propagation {
 
         // ---- band conditions ----
         if self.show_band_conditions {
-            let section = Rect::from_min_max(
-                egui::pos2(x_left, y),
-                egui::pos2(x_right, rect.max.y),
-            );
-            y = draw_band_conditions(
-                ui,
-                section,
-                &snap,
-                self.home.coord,
-                now,
-                row_h,
-                body_size,
-            );
+            let section =
+                Rect::from_min_max(egui::pos2(x_left, y), egui::pos2(x_right, rect.max.y));
+            y = draw_band_conditions(ui, section, &snap, self.home.coord, now, row_h, body_size);
             y += pad;
         }
 
@@ -257,13 +249,17 @@ fn draw_band_conditions(
             ui.add_sized(
                 header_size,
                 egui::Label::new(
-                    RichText::new(if !is_day_at_home { "▶ NIGHT" } else { "NIGHT" })
-                        .size(body_size * 0.95)
-                        .color(if !is_day_at_home {
-                            day_marker_color
-                        } else {
-                            header_color
-                        }),
+                    RichText::new(if !is_day_at_home {
+                        "▶ NIGHT"
+                    } else {
+                        "NIGHT"
+                    })
+                    .size(body_size * 0.95)
+                    .color(if !is_day_at_home {
+                        day_marker_color
+                    } else {
+                        header_color
+                    }),
                 ),
             );
             ui.end_row();
