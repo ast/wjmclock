@@ -1,5 +1,6 @@
 use crate::color::Color;
-use crate::elements::Element;
+use crate::elements::text_stack::{TextRow, paint_text_stack};
+use crate::elements::{Element, claim_full_rect};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
@@ -38,48 +39,27 @@ impl Callsign {
 
 impl Element for Callsign {
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
-        let rect = ui.available_rect_before_wrap();
-        let response = ui.allocate_rect(rect, egui::Sense::hover());
-        let painter = ui.painter_at(rect);
+        let (rect, response, painter) = claim_full_rect(ui);
 
         let call_chars = (self.call.chars().count() as f32 + 0.5).max(4.0);
-        let sub_chars = self
-            .subtitle
-            .as_ref()
-            .map(|s| s.chars().count() as f32 + 1.0)
-            .unwrap_or(8.0)
-            .max(8.0);
-
         let has_sub = self.subtitle.is_some();
-        let main_size = (rect.height() * if has_sub { 0.66 } else { 0.78 })
-            .min(rect.width() / (call_chars * 0.62));
-        let sub_size = (rect.height() * 0.18).min(rect.width() / (sub_chars * 0.55));
-
-        let rows = if has_sub { 2 } else { 1 };
-        let used = main_size + if has_sub { sub_size } else { 0.0 };
-        let gap = ((rect.height() - used) / (rows as f32 + 1.0)).max(0.0);
-
-        let center_x = rect.center().x;
-        let mut y = rect.min.y + gap;
-        painter.text(
-            egui::pos2(center_x, y),
-            egui::Align2::CENTER_TOP,
+        let mut rows = vec![TextRow::monospace(
             &self.call,
-            egui::FontId::monospace(main_size),
+            if has_sub { 0.66 } else { 0.78 },
+            call_chars,
             self.color,
-        );
-        y += main_size + gap;
-
+        )];
         if let Some(sub) = &self.subtitle {
-            painter.text(
-                egui::pos2(center_x, y),
-                egui::Align2::CENTER_TOP,
+            let sub_chars = (sub.chars().count() as f32 + 1.0).max(8.0);
+            rows.push(TextRow::proportional(
                 sub,
-                egui::FontId::proportional(sub_size),
+                0.18,
+                sub_chars,
                 self.color.linear_multiply(0.75),
-            );
+            ));
         }
 
+        paint_text_stack(&painter, rect, &rows);
         response
     }
 }

@@ -1,5 +1,6 @@
 use crate::color::Color;
-use crate::elements::Element;
+use crate::elements::text_stack::{TextRow, paint_text_stack};
+use crate::elements::{Element, claim_full_rect};
 use anyhow::{Context, Result, anyhow};
 use chrono::{Datelike, Timelike, Utc};
 use chrono_tz::Tz;
@@ -91,58 +92,28 @@ impl Element for Clock {
             now.year(),
         );
 
-        let rect = ui.available_rect_before_wrap();
-        let response = ui.allocate_rect(rect, egui::Sense::hover());
-        let painter = ui.painter_at(rect);
+        let (rect, response, painter) = claim_full_rect(ui);
 
         // Three stacked rows: time (dominant), date (medium), tz label (small).
-        // Cap each by both height-fraction and width-fraction so nothing overflows.
-        // Width factors are tuned for monospace ~0.6 em advance + a little margin.
         let time_chars = if self.twenty_four_hour { 8.5 } else { 11.5 };
         let date_chars = 16.0;
-        let label_chars = (self.label_text.len() as f32 + 2.0).max(6.0);
-
-        let time_size = (rect.height() * 0.62).min(rect.width() / (time_chars * 0.62));
-        let date_size = (rect.height() * 0.18).min(rect.width() / (date_chars * 0.62));
-        let label_size = (rect.height() * 0.10).min(rect.width() / (label_chars * 0.62));
-
-        // Distribute leftover vertical space as gaps above/between/below the rows.
-        let rows = if self.show_label { 3 } else { 2 };
-        let used = time_size + date_size + if self.show_label { label_size } else { 0.0 };
-        let gap = ((rect.height() - used) / (rows as f32 + 1.0)).max(0.0);
-
-        let center_x = rect.center().x;
         let label_color = self.color.linear_multiply(0.75);
 
-        let mut y = rect.min.y + gap;
-        painter.text(
-            egui::pos2(center_x, y),
-            egui::Align2::CENTER_TOP,
-            time_str,
-            egui::FontId::monospace(time_size),
-            self.color,
-        );
-        y += time_size + gap;
-
-        painter.text(
-            egui::pos2(center_x, y),
-            egui::Align2::CENTER_TOP,
-            date_str,
-            egui::FontId::monospace(date_size),
-            label_color,
-        );
-        y += date_size + gap;
-
+        let mut rows = vec![
+            TextRow::monospace(time_str, 0.62, time_chars, self.color),
+            TextRow::monospace(date_str, 0.18, date_chars, label_color),
+        ];
         if self.show_label {
-            painter.text(
-                egui::pos2(center_x, y),
-                egui::Align2::CENTER_TOP,
+            let label_chars = (self.label_text.len() as f32 + 2.0).max(6.0);
+            rows.push(TextRow::proportional(
                 &self.label_text,
-                egui::FontId::proportional(label_size),
+                0.10,
+                label_chars,
                 label_color,
-            );
+            ));
         }
 
+        paint_text_stack(&painter, rect, &rows);
         response
     }
 }

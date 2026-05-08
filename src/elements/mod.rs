@@ -5,6 +5,7 @@ pub mod callsign;
 pub mod clock;
 pub mod map;
 pub mod propagation;
+pub mod text_stack;
 
 pub use callsign::Callsign;
 pub use clock::Clock;
@@ -27,14 +28,27 @@ pub struct Globals {
 /// state updates — `request_repaint_after`, lazy service init, … — happen
 /// inside `ui()`. The blanket impl below makes `&mut dyn Element` usable with
 /// `ui.add(...)` / `ui.put(...)` like any native widget.
+///
+/// Most elements paint absolutely with `ui.painter_at(rect)`; `claim_full_rect`
+/// is the standard preamble for that style.
 pub trait Element {
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response;
 }
 
-impl egui::Widget for &mut dyn Element {
+impl egui::Widget for &mut (dyn Element + '_) {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         Element::ui(self, ui)
     }
+}
+
+/// Standard preamble for painter-based elements: take the full available rect,
+/// claim it on the parent `Ui` (so auto-sizing containers like `egui::Window`
+/// frame the content), and return a clipped `Painter` for it.
+pub fn claim_full_rect(ui: &mut egui::Ui) -> (egui::Rect, egui::Response, egui::Painter) {
+    let rect = ui.available_rect_before_wrap();
+    let response = ui.allocate_rect(rect, egui::Sense::hover());
+    let painter = ui.painter_at(rect);
+    (rect, response, painter)
 }
 
 /// Construct an element from its TOML config. Adding a new element type =
@@ -64,7 +78,7 @@ pub fn make_element(cfg: &ElementConfig, globals: &Globals) -> Result<Box<dyn El
             .map(|e| Box::new(e) as Box<dyn Element>)
             .map_err(|e| AppError::ElementConfig {
                 kind: cfg.kind.clone(),
-                source: e,
+                source: e.context("propagation"),
             }),
         other => Err(AppError::UnknownElement(other.into())),
     }

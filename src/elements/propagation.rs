@@ -7,7 +7,7 @@
 //! ray-traced MUF/LUF series.
 
 use crate::config::Marker;
-use crate::elements::{Element, Globals};
+use crate::elements::{Element, Globals, claim_full_rect};
 use crate::geo::Subsolar;
 use crate::propagation::bands::{HF_BANDS, Rating};
 use crate::propagation::{PropagationService, PropagationSnapshot, Target, bands, kc2g};
@@ -34,7 +34,8 @@ pub struct Propagation {
     targets: Vec<Marker>,
     show_band_conditions: bool,
     show_path_predictions: bool,
-    /// Lazy-started on the first `update()` call (we need an `egui::Context`).
+    /// Lazy-started on the first `ui()` call (we need an `egui::Context`).
+    /// If the window starts closed, the service doesn't spawn until first open.
     service: Option<PropagationService>,
 }
 
@@ -98,9 +99,7 @@ impl Element for Propagation {
             .map(|s| s.snapshot())
             .unwrap_or_default();
 
-        let rect = ui.available_rect_before_wrap();
-        let response = ui.allocate_rect(rect, Sense::hover());
-        let painter = ui.painter_at(rect);
+        let (rect, response, painter) = claim_full_rect(ui);
         painter.rect_stroke(
             rect,
             0.0,

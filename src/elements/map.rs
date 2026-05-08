@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::config::{Marker, MarkerKind};
-use crate::elements::{Element, Globals};
+use crate::elements::{Element, Globals, claim_full_rect};
 use crate::geo::{Coastline, Equirectangular, LatLon, Projection, Subsolar};
 use crate::textures;
 use anyhow::{Context, Result, anyhow};
@@ -188,9 +188,7 @@ impl Element for Map {
         ui.ctx()
             .request_repaint_after(std::time::Duration::from_secs(60));
 
-        let rect = ui.available_rect_before_wrap();
-        let response = ui.allocate_rect(rect, egui::Sense::hover());
-        let painter = ui.painter_at(rect);
+        let (rect, response, painter) = claim_full_rect(ui);
 
         // Lazy GPU upload: we need a Context for `load_texture`, only
         // available once we're inside `ui`. Idempotent after first paint.

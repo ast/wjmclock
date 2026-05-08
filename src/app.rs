@@ -121,7 +121,7 @@ impl App {
                 egui::pos2(x, panel.min.y),
                 egui::vec2(*w, panel.height()),
             );
-            ui.put(rect, entry.element.as_mut() as &mut dyn Element);
+            ui.put(rect, &mut *entry.element);
             x += w;
         }
 
@@ -132,7 +132,7 @@ impl App {
                 egui::pos2(x, panel.min.y),
                 egui::vec2(*w, panel.height()),
             );
-            ui.put(rect, entry.element.as_mut() as &mut dyn Element);
+            ui.put(rect, &mut *entry.element);
         }
     }
 }
@@ -240,7 +240,7 @@ impl eframe::App for App {
             .frame(egui::Frame::NONE.fill(bg))
             .show_inside(ui, |ui| {
                 if let Some(c) = self.center.as_mut() {
-                    ui.add(c.as_mut() as &mut dyn Element);
+                    ui.add(&mut **c);
                 }
             });
 
@@ -254,7 +254,7 @@ impl eframe::App for App {
                 .default_size(init.size())
                 .open(&mut w.open)
                 .show(&ctx, |ui| {
-                    ui.add(w.element.as_mut() as &mut dyn Element);
+                    ui.add(&mut *w.element);
                 });
         }
     }
