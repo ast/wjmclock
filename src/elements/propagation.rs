@@ -13,7 +13,7 @@ use crate::propagation::bands::{HF_BANDS, Rating};
 use crate::propagation::{PropagationService, PropagationSnapshot, Target, bands, kc2g};
 use anyhow::{Context, Result, anyhow};
 use chrono::{Timelike, Utc};
-use egui::{Align2, Color32, FontId, Stroke, vec2};
+use egui::{Align, Align2, Color32, FontId, Layout, Rect, RichText, Sense, Stroke, UiBuilder, vec2};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -150,15 +150,16 @@ impl Element for Propagation {
 
         // ---- band conditions ----
         if self.show_band_conditions {
+            let section = Rect::from_min_max(
+                egui::pos2(x_left, y),
+                egui::pos2(x_right, rect.max.y),
+            );
             y = draw_band_conditions(
-                &painter,
+                ui,
+                section,
                 &snap,
                 self.home.coord,
                 now,
-                rect,
-                x_left,
-                x_right,
-                y,
                 row_h,
                 body_size,
             );
@@ -174,143 +175,147 @@ impl Element for Propagation {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Renders the band-conditions section into a scoped child Ui covering
+/// `section`, using `egui::Grid` for the day/night × band table. Returns the
+/// y coordinate of the bottom of the rendered content.
 fn draw_band_conditions(
-    painter: &egui::Painter,
+    ui: &mut egui::Ui,
+    section: Rect,
     snap: &PropagationSnapshot,
     home: crate::geo::LatLon,
     now: chrono::DateTime<Utc>,
-    rect: egui::Rect,
-    x_left: f32,
-    x_right: f32,
-    mut y: f32,
     row_h: f32,
     body_size: f32,
 ) -> f32 {
     let header_color = Color32::from_rgb(180, 200, 200);
-    painter.text(
-        egui::pos2(x_left, y),
-        Align2::LEFT_TOP,
-        "BAND CONDITIONS",
-        FontId::proportional(body_size),
-        header_color,
+    let day_marker_color = Color32::from_rgb(255, 220, 120);
+    let mut child = ui.new_child(
+        UiBuilder::new()
+            .max_rect(section)
+            .layout(Layout::top_down(Align::Min)),
     );
-    if let Some(s) = snap.solar {
-        painter.text(
-            egui::pos2(x_right, y),
-            Align2::RIGHT_TOP,
-            format!("SFI {:.0}  K {:.0}", s.sfi, s.k_index),
-            FontId::monospace(body_size),
-            header_color,
+
+    // Section header: "BAND CONDITIONS" left, "SFI K" right.
+    child.horizontal(|ui| {
+        ui.label(
+            RichText::new("BAND CONDITIONS")
+                .size(body_size)
+                .color(header_color),
         );
-    }
-    y += body_size + 2.0;
+        if let Some(s) = snap.solar {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(
+                    RichText::new(format!("SFI {:.0}  K {:.0}", s.sfi, s.k_index))
+                        .monospace()
+                        .size(body_size)
+                        .color(header_color),
+                );
+            });
+        }
+    });
 
     let Some(solar) = snap.solar else {
-        painter.text(
-            egui::pos2(x_left, y),
-            Align2::LEFT_TOP,
-            "(awaiting solar indices)",
-            FontId::proportional(body_size),
-            Color32::from_rgba_unmultiplied(200, 200, 200, 140),
+        child.label(
+            RichText::new("(awaiting solar indices)")
+                .size(body_size)
+                .color(Color32::from_rgba_unmultiplied(200, 200, 200, 140)),
         );
-        return y + row_h;
+        return child.min_rect().max.y;
     };
 
     let table = bands::derive(solar.sfi, solar.k_index);
-
-    // Highlight the column matching the local day/night state at home.
     let is_day_at_home = Subsolar::at(now).elevation_at(home.lat, home.lon) >= 0.0;
 
-    // Layout: label | day cell | night cell, three columns evenly across
-    // the available width.
-    let total_w = x_right - x_left;
+    // Three columns: label | day | night, sized as 25 / 37.5 / 37.5 of section.
+    let total_w = section.width();
     let label_w = total_w * 0.25;
     let cell_w = (total_w - label_w) * 0.5;
+    let chip_size = vec2(cell_w, body_size + 4.0);
+    let header_size = vec2(cell_w, body_size + 4.0);
+    let label_size = vec2(label_w, body_size + 4.0);
 
-    // Sub-header
-    painter.text(
-        egui::pos2(x_left + label_w + cell_w * 0.5, y),
-        Align2::CENTER_TOP,
-        if is_day_at_home { "▶ DAY" } else { "DAY" },
-        FontId::proportional(body_size * 0.95),
-        if is_day_at_home {
-            Color32::from_rgb(255, 220, 120)
-        } else {
-            header_color
-        },
-    );
-    painter.text(
-        egui::pos2(x_left + label_w + cell_w * 1.5, y),
-        Align2::CENTER_TOP,
-        if is_day_at_home { "NIGHT" } else { "▶ NIGHT" },
-        FontId::proportional(body_size * 0.95),
-        if !is_day_at_home {
-            Color32::from_rgb(255, 220, 120)
-        } else {
-            header_color
-        },
-    );
-    y += body_size + 2.0;
+    egui::Grid::new("band_conditions_table")
+        .num_columns(3)
+        .min_row_height(row_h)
+        .spacing(vec2(0.0, 0.0))
+        .show(&mut child, |ui| {
+            // Day/Night header row. Spacer in the label column.
+            ui.add_sized(label_size, egui::Label::new(""));
+            ui.add_sized(
+                header_size,
+                egui::Label::new(
+                    RichText::new(if is_day_at_home { "▶ DAY" } else { "DAY" })
+                        .size(body_size * 0.95)
+                        .color(if is_day_at_home {
+                            day_marker_color
+                        } else {
+                            header_color
+                        }),
+                ),
+            );
+            ui.add_sized(
+                header_size,
+                egui::Label::new(
+                    RichText::new(if !is_day_at_home { "▶ NIGHT" } else { "NIGHT" })
+                        .size(body_size * 0.95)
+                        .color(if !is_day_at_home {
+                            day_marker_color
+                        } else {
+                            header_color
+                        }),
+                ),
+            );
+            ui.end_row();
 
-    for row in &table {
-        if y + row_h > rect.max.y {
-            break;
-        }
-        painter.text(
-            egui::pos2(x_left, y),
-            Align2::LEFT_TOP,
-            row.label,
-            FontId::monospace(body_size),
-            Color32::from_rgb(220, 220, 220),
-        );
-        draw_rating_chip(
-            painter,
-            egui::Rect::from_min_size(
-                egui::pos2(x_left + label_w, y),
-                vec2(cell_w, body_size + 4.0),
-            ),
-            row.day,
-            body_size,
-        );
-        draw_rating_chip(
-            painter,
-            egui::Rect::from_min_size(
-                egui::pos2(x_left + label_w + cell_w, y),
-                vec2(cell_w, body_size + 4.0),
-            ),
-            row.night,
-            body_size,
-        );
-        y += row_h;
-    }
-    y
+            for row in &table {
+                ui.add_sized(
+                    label_size,
+                    egui::Label::new(
+                        RichText::new(row.label)
+                            .monospace()
+                            .size(body_size)
+                            .color(Color32::from_rgb(220, 220, 220)),
+                    ),
+                );
+                ui.add_sized(chip_size, rating_chip_widget(row.day, body_size));
+                ui.add_sized(chip_size, rating_chip_widget(row.night, body_size));
+                ui.end_row();
+            }
+        });
+
+    child.min_rect().max.y
 }
 
-fn draw_rating_chip(painter: &egui::Painter, rect: egui::Rect, rating: Rating, font_size: f32) {
-    let (bg, fg) = match rating {
-        Rating::Good => (
-            Color32::from_rgba_unmultiplied(60, 180, 90, 90),
-            Color32::from_rgb(180, 240, 200),
-        ),
-        Rating::Fair => (
-            Color32::from_rgba_unmultiplied(220, 180, 60, 80),
-            Color32::from_rgb(255, 230, 160),
-        ),
-        Rating::Poor => (
-            Color32::from_rgba_unmultiplied(220, 80, 80, 90),
-            Color32::from_rgb(255, 180, 180),
-        ),
-    };
-    let inset = rect.shrink2(vec2(2.0, 1.0));
-    painter.rect_filled(inset, 2.0, bg);
-    painter.text(
-        inset.center(),
-        Align2::CENTER_CENTER,
-        format!("{rating}"),
-        FontId::proportional(font_size),
-        fg,
-    );
+/// A rating chip — a rounded, color-coded label that fills its allocated cell.
+fn rating_chip_widget(rating: Rating, font_size: f32) -> impl egui::Widget {
+    move |ui: &mut egui::Ui| {
+        let (bg, fg) = match rating {
+            Rating::Good => (
+                Color32::from_rgba_unmultiplied(60, 180, 90, 90),
+                Color32::from_rgb(180, 240, 200),
+            ),
+            Rating::Fair => (
+                Color32::from_rgba_unmultiplied(220, 180, 60, 80),
+                Color32::from_rgb(255, 230, 160),
+            ),
+            Rating::Poor => (
+                Color32::from_rgba_unmultiplied(220, 80, 80, 90),
+                Color32::from_rgb(255, 180, 180),
+            ),
+        };
+        let size = ui.available_size_before_wrap();
+        let (response, painter) = ui.allocate_painter(size, Sense::hover());
+        let inset = response.rect.shrink2(vec2(2.0, 1.0));
+        painter.rect_filled(inset, 2.0, bg);
+        painter.text(
+            inset.center(),
+            Align2::CENTER_CENTER,
+            format!("{rating}"),
+            FontId::proportional(font_size),
+            fg,
+        );
+        response
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
