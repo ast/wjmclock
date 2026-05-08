@@ -186,6 +186,10 @@ pub struct ElementConfig {
     /// Used by `slot = "window"`. Title-bar text.
     #[serde(default)]
     pub title: Option<String>,
+    /// Used by `slot = "window"`. egui `Key::from_name` value (e.g. `"P"`,
+    /// `"F1"`) that toggles the window's open state when pressed.
+    #[serde(default)]
+    pub key: Option<String>,
     #[serde(flatten)]
     pub extra: toml::Table,
 }
@@ -307,6 +311,7 @@ fn default_elements() -> Vec<ElementConfig> {
             rect: None,
             open: true,
             title: None,
+            key: None,
             extra: clock,
         },
         ElementConfig {
@@ -317,6 +322,7 @@ fn default_elements() -> Vec<ElementConfig> {
             rect: None,
             open: true,
             title: None,
+            key: None,
             extra: map,
         },
     ]

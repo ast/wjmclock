@@ -13,6 +13,7 @@ struct WindowEntry {
     title: String,
     rect: FractionalRect,
     open: bool,
+    toggle_key: Option<egui::Key>,
 }
 
 pub struct App {
@@ -71,11 +72,21 @@ impl App {
                         msg: "slot=\"window\" requires `rect = { x, y, w, h }`".into(),
                     })?;
                     let title = window_title(cfg);
+                    let toggle_key = match &cfg.key {
+                        None => None,
+                        Some(s) => {
+                            Some(egui::Key::from_name(s).ok_or_else(|| AppError::InvalidSlot {
+                                kind: cfg.kind.clone(),
+                                msg: format!("unknown key name {s:?}"),
+                            })?)
+                        }
+                    };
                     windows.push(WindowEntry {
                         element,
                         title,
                         rect,
                         open: cfg.open,
+                        toggle_key,
                     });
                 }
             }
@@ -192,6 +203,9 @@ fn paint_into(ui: &mut egui::Ui, rect: egui::Rect, element: &mut dyn Element) {
 
 fn paint_full(ui: &mut egui::Ui, element: &mut dyn Element) {
     let rect = ui.available_rect_before_wrap();
+    // Claim the rect so auto-sizing containers (e.g. egui::Window) frame the
+    // content; elements paint via `painter_at` and don't allocate themselves.
+    let _ = ui.allocate_rect(rect, egui::Sense::hover());
     paint_into(ui, rect, element);
 }
 
@@ -213,11 +227,21 @@ impl eframe::App for App {
         // regardless of which element has focus:
         //   Esc, Ctrl/Cmd+Q  → quit
         //   F                → toggle fullscreen
-        let (quit, toggle_full) = ctx.input(|i| {
+        // Per-window toggle keys come from the element config (`key = "..."`).
+        let (quit, toggle_full, window_toggles) = ctx.input(|i| {
             let quit = i.key_pressed(egui::Key::Escape)
                 || (i.modifiers.command && i.key_pressed(egui::Key::Q));
             let toggle_full = i.key_pressed(egui::Key::F);
-            (quit, toggle_full)
+            let toggles: Vec<usize> = self
+                .windows
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, w)| match w.toggle_key {
+                    Some(k) if i.key_pressed(k) => Some(idx),
+                    _ => None,
+                })
+                .collect();
+            (quit, toggle_full, toggles)
         });
         if quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -225,6 +249,9 @@ impl eframe::App for App {
         if toggle_full {
             let now_full = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!now_full));
+        }
+        for idx in window_toggles {
+            self.windows[idx].open = !self.windows[idx].open;
         }
 
         if self.no_cursor {
@@ -251,9 +278,12 @@ impl eframe::App for App {
                 }
             });
 
+        let window_frame = egui::Frame::window(&ctx.global_style())
+            .fill(egui::Color32::from_rgba_unmultiplied(10, 10, 20, 153));
         for w in &mut self.windows {
             let init = Layout::resolve(ctx.content_rect(), w.rect);
             egui::Window::new(&w.title)
+                .frame(window_frame)
                 .default_pos(init.min)
                 .default_size(init.size())
                 .open(&mut w.open)

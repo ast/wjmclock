@@ -101,5 +101,6 @@ slot             = "window"
 title            = "Propagation"
 rect             = { x = 0.66, y = 0.55, w = 0.33, h = 0.43 }
 open             = true
+key              = "P"      # press P to toggle the window
 band_conditions  = true     # global HF band ratings derived from SFI + K-index
 path_predictions = true     # per-marker openings derived from KC2G ray-tracing
