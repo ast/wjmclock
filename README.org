@@ -78,7 +78,7 @@ straight from the repo (drops the binary in =~/.cargo/bin/wjmclock=):
 
 #+begin_src bash
 # Latest tagged release
-cargo install --git https://github.com/ast/wjmclock --tag v0.1.1 --locked
+cargo install --git https://github.com/ast/wjmclock --tag v0.1.3 --locked
 
 # Or the tip of main
 cargo install --git https://github.com/ast/wjmclock --locked
@@ -112,11 +112,16 @@ just run                                  # cargo run with the example config
 
 ** Hotkeys
 
-| Key      | Action                                  |
-|----------+-----------------------------------------|
-| =Esc=    | Quit                                    |
-| =Ctrl+Q= | Quit (Cmd+Q on macOS)                   |
-| =F11=    | Toggle fullscreen                       |
+| Key      | Action                                                          |
+|----------+-----------------------------------------------------------------|
+| =Esc=    | Quit                                                            |
+| =Ctrl+Q= | Quit (Cmd+Q on macOS)                                           |
+| =F=      | Toggle fullscreen                                               |
+| (config) | Per-window toggles (e.g. =P= for the propagation window)        |
+
+Window-slot elements can declare =key = "..."= in TOML to bind a hotkey that
+toggles them on and off. The example config maps =P= to the propagation
+window.
 
 =--version= prints the crate version with the embedded git short hash, e.g.
 =wjmclock 0.1.0 (e057858)= (with =-dirty= when the working tree has uncommitted
@@ -164,13 +169,14 @@ loaded from the config. A complete annotated example lives in
 
 ** =[window]=
 
-| Key          | Type   | Default     | Description                            |
-|--------------+--------+-------------+----------------------------------------|
-| =width=      | int    | =1920=      | Window width in logical pixels         |
-| =height=     | int    | =1080=      | Window height in logical pixels        |
-| =fullscreen= | bool   | =false=     | Start fullscreen                       |
-| =no_cursor=  | bool   | =false=     | Hide the mouse cursor                  |
-| =background= | string | ="#0a0a14"= | Window background color (hex)          |
+| Key                 | Type   | Default     | Description                                  |
+|---------------------+--------+-------------+----------------------------------------------|
+| =width=             | int    | =1920=      | Window width in logical pixels               |
+| =height=            | int    | =1080=      | Window height in logical pixels              |
+| =fullscreen=        | bool   | =false=     | Start fullscreen                             |
+| =no_cursor=         | bool   | =false=     | Hide the mouse cursor                        |
+| =background=        | string | ="#0a0a14"= | Window background color (hex)                |
+| =top_panel_height=  | float  | =0.22=      | Top-panel height as a fraction of the window |
 
 ** =[home]=
 
@@ -195,13 +201,41 @@ marker's local time is drawn beneath its label.
 
 ** =[[element]]= — shared keys
 
-Each =[[element]]= entry has these two required keys; element-specific keys
-follow in the sections below.
+Every element declares its =type= and a =slot= that places it in the layout.
+Each slot has a small set of slot-specific keys (=align=, =rect=, =title=,
+=key=, =open=); element-specific keys follow in the sections below.
 
 | Key    | Type   | Description                                              |
 |--------+--------+----------------------------------------------------------|
 | =type= | string | =clock=, =map=, =callsign=, or =propagation=             |
-| =rect= | table  | ={ x, y, w, h }= as fractions of the window (0..1)       |
+| =slot= | string | =top=, =center=, or =window= (see below)                 |
+
+*** =slot = "top"=
+
+Pinned in the top panel (clocks, callsign). Multiple top-slot elements share
+the panel: left-aligned ones pack from the left edge, right-aligned ones pack
+from the right edge in declaration order.
+
+| Key     | Type   | Default  | Description                                              |
+|---------+--------+----------+----------------------------------------------------------|
+| =align= | string | ="left"= | =left= or =right= — which side of the panel to pin to    |
+| =width= | float  | —        | Optional fractional width (0..1 of the window)           |
+
+*** =slot = "center"=
+
+Fills the central panel (the map). Exactly one element may use =center=.
+
+*** =slot = "window"=
+
+A floating, draggable =egui::Window= that sits over the map (translucent by
+default). Useful for the propagation overlay.
+
+| Key     | Type   | Default       | Description                                                  |
+|---------+--------+---------------+--------------------------------------------------------------|
+| =rect=  | table  | (required)    | ={ x, y, w, h }= initial position+size as fractions (0..1)   |
+| =title= | string | =type= name   | Title-bar text                                               |
+| =open=  | bool   | =true=        | Whether the window is shown on startup                       |
+| =key=   | string | —             | Key name (e.g. ="P"=, ="F1"=) that toggles open/closed       |
 
 ** =type = "clock"=
 
