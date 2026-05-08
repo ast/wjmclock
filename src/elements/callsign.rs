@@ -37,10 +37,9 @@ impl Callsign {
 }
 
 impl Element for Callsign {
-    fn update(&mut self, _ctx: &egui::Context) {}
-
-    fn ui(&mut self, ui: &mut egui::Ui) {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let rect = ui.available_rect_before_wrap();
+        let response = ui.allocate_rect(rect, egui::Sense::hover());
         let painter = ui.painter_at(rect);
 
         let call_chars = (self.call.chars().count() as f32 + 0.5).max(4.0);
@@ -80,5 +79,7 @@ impl Element for Callsign {
                 self.color.linear_multiply(0.75),
             );
         }
+
+        response
     }
 }

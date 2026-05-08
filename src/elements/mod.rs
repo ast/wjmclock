@@ -21,11 +21,20 @@ pub struct Globals {
 }
 
 /// A drawable, configurable widget placed in a fractional rect of the window.
+///
+/// Shaped like an `egui::Widget` except `&mut self` so elements can persist
+/// state across frames (the worker handle in `Propagation`, etc.). Per-frame
+/// state updates — `request_repaint_after`, lazy service init, … — happen
+/// inside `ui()`. The blanket impl below makes `&mut dyn Element` usable with
+/// `ui.add(...)` / `ui.put(...)` like any native widget.
 pub trait Element {
-    /// Per-frame state update (request_repaint, advance animations, etc.).
-    fn update(&mut self, ctx: &egui::Context);
-    /// Draw inside the rect implied by the parent UI.
-    fn ui(&mut self, ui: &mut egui::Ui);
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response;
+}
+
+impl egui::Widget for &mut dyn Element {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        Element::ui(self, ui)
+    }
 }
 
 /// Construct an element from its TOML config. Adding a new element type =

@@ -103,21 +103,6 @@ impl App {
         })
     }
 
-    fn for_each_element_mut(&mut self, mut f: impl FnMut(&mut dyn Element)) {
-        for e in &mut self.top_left {
-            f(e.element.as_mut());
-        }
-        for e in &mut self.top_right {
-            f(e.element.as_mut());
-        }
-        if let Some(c) = self.center.as_mut() {
-            f(c.as_mut());
-        }
-        for w in &mut self.windows {
-            f(w.element.as_mut());
-        }
-    }
-
     fn render_top(&mut self, ui: &mut egui::Ui) {
         let panel = ui.max_rect();
         let total = panel.width();
@@ -136,7 +121,7 @@ impl App {
                 egui::pos2(x, panel.min.y),
                 egui::vec2(*w, panel.height()),
             );
-            paint_into(ui, rect, entry.element.as_mut());
+            ui.put(rect, entry.element.as_mut() as &mut dyn Element);
             x += w;
         }
 
@@ -147,7 +132,7 @@ impl App {
                 egui::pos2(x, panel.min.y),
                 egui::vec2(*w, panel.height()),
             );
-            paint_into(ui, rect, entry.element.as_mut());
+            ui.put(rect, entry.element.as_mut() as &mut dyn Element);
         }
     }
 }
@@ -190,23 +175,6 @@ fn pack_widths(entries: &[TopEntry], total_width: f32, half_width: f32) -> Vec<f
             None => per_auto,
         })
         .collect()
-}
-
-fn paint_into(ui: &mut egui::Ui, rect: egui::Rect, element: &mut dyn Element) {
-    let mut child = ui.new_child(
-        egui::UiBuilder::new()
-            .max_rect(rect)
-            .layout(egui::Layout::top_down(egui::Align::Min)),
-    );
-    element.ui(&mut child);
-}
-
-fn paint_full(ui: &mut egui::Ui, element: &mut dyn Element) {
-    let rect = ui.available_rect_before_wrap();
-    // Claim the rect so auto-sizing containers (e.g. egui::Window) frame the
-    // content; elements paint via `painter_at` and don't allocate themselves.
-    let _ = ui.allocate_rect(rect, egui::Sense::hover());
-    paint_into(ui, rect, element);
 }
 
 impl eframe::App for App {
@@ -258,8 +226,6 @@ impl eframe::App for App {
             ctx.set_cursor_icon(egui::CursorIcon::None);
         }
 
-        self.for_each_element_mut(|el| el.update(&ctx));
-
         let panel_h = (self.top_panel_height * ctx.content_rect().height()).max(0.0);
         let bg = self.bg;
 
@@ -274,7 +240,7 @@ impl eframe::App for App {
             .frame(egui::Frame::NONE.fill(bg))
             .show_inside(ui, |ui| {
                 if let Some(c) = self.center.as_mut() {
-                    paint_full(ui, c.as_mut());
+                    ui.add(c.as_mut() as &mut dyn Element);
                 }
             });
 
@@ -287,7 +253,9 @@ impl eframe::App for App {
                 .default_pos(init.min)
                 .default_size(init.size())
                 .open(&mut w.open)
-                .show(&ctx, |ui| paint_full(ui, w.element.as_mut()));
+                .show(&ctx, |ui| {
+                    ui.add(w.element.as_mut() as &mut dyn Element);
+                });
         }
     }
 }

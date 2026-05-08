@@ -183,13 +183,13 @@ impl Map {
 }
 
 impl Element for Map {
-    fn update(&mut self, ctx: &egui::Context) {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         // The terminator drifts ~0.25° per minute — refreshing once a minute is plenty.
-        ctx.request_repaint_after(std::time::Duration::from_secs(60));
-    }
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_secs(60));
 
-    fn ui(&mut self, ui: &mut egui::Ui) {
         let rect = ui.available_rect_before_wrap();
+        let response = ui.allocate_rect(rect, egui::Sense::hover());
         let painter = ui.painter_at(rect);
 
         // Lazy GPU upload: we need a Context for `load_texture`, only
@@ -270,6 +270,8 @@ impl Element for Map {
             Stroke::new(1.0, Color32::from_rgb(40, 60, 60)),
             egui::StrokeKind::Inside,
         );
+
+        response
     }
 }
 

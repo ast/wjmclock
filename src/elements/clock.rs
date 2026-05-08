@@ -63,15 +63,14 @@ impl Clock {
 }
 
 impl Element for Clock {
-    fn update(&mut self, ctx: &egui::Context) {
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         // Repaint at the next second boundary.
-        let now = Utc::now();
-        let ms_to_next = 1000 - (now.timestamp_subsec_millis() as i64);
-        ctx.request_repaint_after(std::time::Duration::from_millis(ms_to_next.max(50) as u64));
-    }
+        let utc_now = Utc::now();
+        let ms_to_next = 1000 - (utc_now.timestamp_subsec_millis() as i64);
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(ms_to_next.max(50) as u64));
 
-    fn ui(&mut self, ui: &mut egui::Ui) {
-        let now = Utc::now().with_timezone(&self.tz);
+        let now = utc_now.with_timezone(&self.tz);
         let time_str = if self.twenty_four_hour {
             format!("{:02}:{:02}:{:02}", now.hour(), now.minute(), now.second())
         } else {
@@ -93,6 +92,7 @@ impl Element for Clock {
         );
 
         let rect = ui.available_rect_before_wrap();
+        let response = ui.allocate_rect(rect, egui::Sense::hover());
         let painter = ui.painter_at(rect);
 
         // Three stacked rows: time (dominant), date (medium), tz label (small).
@@ -142,6 +142,8 @@ impl Element for Clock {
                 label_color,
             );
         }
+
+        response
     }
 }
 

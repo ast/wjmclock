@@ -85,14 +85,13 @@ impl Propagation {
 }
 
 impl Element for Propagation {
-    fn update(&mut self, ctx: &egui::Context) {
-        self.ensure_service(ctx);
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        self.ensure_service(ui.ctx());
         // Day/night flips are visible in the band table; tick once a minute
         // so we redraw when the home QTH crosses the terminator.
-        ctx.request_repaint_after(std::time::Duration::from_secs(60));
-    }
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_secs(60));
 
-    fn ui(&mut self, ui: &mut egui::Ui) {
         let snap = self
             .service
             .as_ref()
@@ -100,6 +99,7 @@ impl Element for Propagation {
             .unwrap_or_default();
 
         let rect = ui.available_rect_before_wrap();
+        let response = ui.allocate_rect(rect, Sense::hover());
         let painter = ui.painter_at(rect);
         painter.rect_stroke(
             rect,
@@ -172,6 +172,8 @@ impl Element for Propagation {
                 &painter, &snap, now, rect, x_left, x_right, y, row_h, body_size,
             );
         }
+
+        response
     }
 }
 
