@@ -2,6 +2,9 @@
 name = "wjmclock"
 version = "0.1.3"
 edition = "2024"
+authors = ["Albin Stigö <albin.stigo@gmail.com>"]
+description = "Rust reimplementation of HamClock — desktop war-room clock and HF propagation dashboard."
+license = "GPL-3.0-or-later"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
