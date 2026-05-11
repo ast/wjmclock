@@ -2,6 +2,12 @@
 #+SUBTITLE: Modern HamClock-style war-room display
 #+OPTIONS: toc:nil num:nil ^:nil
 
+#+CAPTION: wjmclock running fullscreen on a Raspberry Pi at the SM6WJM station.
+#+ATTR_HTML: :width 600
+#+ATTR_ORG: :width 600
+[[file:docs/raspberry-pi-fullscreen.jpg]]
+
+#+CAPTION: Default layout at 1920×1080: callsign, dual clocks, equirectangular map with day/night terminator, and the propagation panel.
 [[file:docs/screenshot.png]]
 
 * TL;DR
