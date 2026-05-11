@@ -6,17 +6,30 @@
 
 * TL;DR
 
+wjmclock is a day/night terminator map (like a [[https://www.geochron.com/][geochron]]). Primary use
+is for your ham radio station. It also displays your call as well as
+local time and UTC. It's written in rust [[https://rust-lang.org/][rust]] and drawing is GPU
+accelerated. no system install is necessary, it's a self contained
+binary and a config file where you set your call and add markers to
+other locations where you want to display local time.
+
+You can check the script here: [[file:scripts/install.sh][scripts/install.sh]]
+
+So far tested on, please let me know if you have tested it on other
+platforms:
+
+- Ubuntu 24.04 amd64
+- Raspberry Pi 4 bookworm
+
 #+begin_src bash
 curl -fsSL https://raw.githubusercontent.com/ast/wjmclock/main/scripts/install.sh | bash
 #+end_src
 
-Downloads the right pre-built binary into =~/wjmclock=, grabs the
+Downloads the right pre-built binary into =$HOME/wjmclock=, grabs the
 example config, checks that the OpenGL / Wayland / X11 runtime
 libraries are present, and launches. The script never uses ~sudo~ and
 never installs anything — if a library is missing it prints the
 ~apt install~ command for you to run yourself.
-
-You can check the script here: [[file:scripts/install.sh][scripts/install.sh]]
 
 * About
 
@@ -50,12 +63,12 @@ Tagged releases ship Linux binaries for both ~x86_64~ and ~aarch64~ on the
 [[https://github.com/ast/wjmclock/releases/latest][Releases page]]. Each release contains four files — full and stripped variants
 per architecture:
 
-| File suffix                                         | Use                                          |
-|-----------------------------------------------------+----------------------------------------------|
-| =-x86_64-unknown-linux-gnu=                         | Desktop / server, full symbols               |
-| =-x86_64-unknown-linux-gnu-stripped=                | Desktop / server, ~12% smaller               |
-| =-aarch64-unknown-linux-gnu=                        | Raspberry Pi 4/5, full symbols               |
-| =-aarch64-unknown-linux-gnu-stripped=               | Raspberry Pi 4/5, smaller                    |
+| File suffix                           | Use                            |
+|---------------------------------------+--------------------------------|
+| =-x86_64-unknown-linux-gnu=           | Desktop / server, full symbols |
+| =-x86_64-unknown-linux-gnu-stripped=  | Desktop / server, ~12% smaller   |
+| =-aarch64-unknown-linux-gnu=          | Raspberry Pi 4/5, full symbols |
+| =-aarch64-unknown-linux-gnu-stripped= | Raspberry Pi 4/5, smaller      |
 
 The binaries are built on Ubuntu 22.04, so they require glibc ≥ 2.35 (Ubuntu
 22.04+, Debian 12+, Pi OS bookworm+, RHEL 10+). Runtime deps are the same as

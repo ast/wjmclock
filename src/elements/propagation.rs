@@ -110,9 +110,21 @@ impl Element for Propagation {
         );
 
         let pad = (rect.height() * 0.04).clamp(4.0, 12.0);
-        let row_h = (rect.height() * 0.07).clamp(14.0, 22.0);
-        let header_size = (row_h * 0.95).max(13.0);
-        let body_size = (row_h * 0.78).max(11.0);
+        // Size rows from the actual row count so the paths section stays visible
+        // when the user shrinks the window. Rows: 1 element header + band section
+        // (1 section header + day/night + 8 bands = 10 when shown) + paths section
+        // (1 header + N path rows). targets.len() is used so space is reserved
+        // even while the first snapshot is still loading.
+        let band_rows = if self.show_band_conditions { 10 } else { 0 };
+        let path_rows = if self.show_path_predictions {
+            1 + self.targets.len().max(1)
+        } else {
+            0
+        };
+        let row_count = (1 + band_rows + path_rows).max(1);
+        let row_h = ((rect.height() - 3.0 * pad) / row_count as f32).clamp(11.0, 22.0);
+        let header_size = (row_h * 0.95).max(11.0);
+        let body_size = (row_h * 0.78).max(9.0);
 
         let mut y = rect.min.y + pad;
         let x_left = rect.min.x + pad;
@@ -223,9 +235,9 @@ fn draw_band_conditions(
     let total_w = section.width();
     let label_w = total_w * 0.25;
     let cell_w = (total_w - label_w) * 0.5;
-    let chip_size = vec2(cell_w, body_size + 4.0);
-    let header_size = vec2(cell_w, body_size + 4.0);
-    let label_size = vec2(label_w, body_size + 4.0);
+    let chip_size = vec2(cell_w, row_h);
+    let header_size = vec2(cell_w, row_h);
+    let label_size = vec2(label_w, row_h);
 
     egui::Grid::new("band_conditions_table")
         .num_columns(3)
