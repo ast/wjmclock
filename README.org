@@ -58,7 +58,7 @@ per architecture:
 | =-aarch64-unknown-linux-gnu-stripped=               | Raspberry Pi 4/5, smaller                    |
 
 The binaries are built on Ubuntu 22.04, so they require glibc ≥ 2.35 (Ubuntu
-22.04+, Debian 12+, Pi OS bookworm+, RHEL 9+). Runtime deps are the same as
+22.04+, Debian 12+, Pi OS bookworm+, RHEL 10+). Runtime deps are the same as
 a local build — see [[#build][Build]] below.
 
 For rolling builds from ~main~ (between releases), see the [[https://github.com/ast/wjmclock/actions/workflows/build.yml][build workflow]] —
